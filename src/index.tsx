@@ -5,21 +5,20 @@ import { Graffito } from "./graffiti";
 
 import "./style";
 
-const bg = "https://mdn.mozillademos.org/files/5397/rhino.jpg";
-// const bg = "https://media.prod.mdn.mozit.cloud/attachments/2012/07/09/205/c86a62360a8c3b1347e651244d6b3137/Canvas_art_gallery.jpg";
-
 export interface GraffitiProps {
   style?: CSSProperties;
   className?: string;
-  backgroundImage?: string;
+  backgroundImageURL?: string;
 }
 
 class Graffiti extends Component<GraffitiProps> {
   componentDidMount() {
+    const { backgroundImageURL } = this.props;
+
     const canvas = document.getElementById("graffiti");
 
     if (canvas) {
-      new Graffito(canvas as HTMLCanvasElement, { backgroundImageURL: bg });
+      new Graffito(canvas as HTMLCanvasElement, { backgroundImageURL });
     }
   }
 
