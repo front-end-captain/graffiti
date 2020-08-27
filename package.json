@@ -1,0 +1,111 @@
+{
+  "name": "graffiti",
+  "version": "0.0.1",
+  "description": "",
+  "source": "src/graffiti.ts",
+  "main": "dist/graffiti.umd.js",
+  "module": "dist/graffiti.js",
+  "types": "dist/types/graffiti.d.ts",
+  "files": [
+    "lib/",
+    "es"
+  ],
+  "scripts": {
+    "eslint": "eslint --config .eslintrc --ext .ts,.tsx src/",
+    "eslint:fix": "eslint --fix --config .eslintrc --ext .ts,.tsx src/",
+    "format:check:style": "prettier --check 'src/**/*.{less}'",
+    "format:check:ts": "prettier --check 'src/**/*.{ts,tsx}'",
+    "format:style": "prettier --write 'src/**/*.{less}'",
+    "format:ts": "prettier --write 'src/**/*.{ts,tsx}'",
+    "stylelint": "stylelint src/**/*.{less}",
+    "prepublishOnly": "npm run build",
+    "build": "npm run build:es && npm run build:cjs && npm run build:css",
+    "build:es": "rimraf es && tsc -p tsconfig.json --module ESNext --outDir es",
+    "build:cjs": "rimraf lib && tsc -p tsconfig.json --module CommonJS --outDir lib",
+    "build:css": "gulp",
+    "dev": "webpack-dev-server --config example/webpack.config.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/front-end-captain/graffiti.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/front-end-captain/graffiti/issues"
+  },
+  "homepage": "https://github.com/front-end-captain/graffiti#readme",
+  "devDependencies": {
+    "@babel/core": "^7.7.2",
+    "@babel/plugin-proposal-class-properties": "^7.5.5",
+    "@babel/preset-env": "^7.7.1",
+    "@babel/preset-typescript": "^7.7.2",
+    "@commitlint/cli": "^9.1.1",
+    "@commitlint/config-conventional": "^9.1.1",
+    "@types/classnames": "^2.2.10",
+    "@types/react": "^16.9.48",
+    "@types/react-dom": "^16.9.8",
+    "@typescript-eslint/eslint-plugin": "^2.34.0",
+    "@typescript-eslint/parser": "^2.34.0",
+    "clean-webpack-plugin": "^3.0.0",
+    "commitizen": "^4.1.2",
+    "css-loader": "^4.2.2",
+    "cz-conventional-changelog": "^3.2.0",
+    "eslint": "^6.8.0",
+    "eslint-config-leap": "^1.0.0",
+    "eslint-config-prettier": "^6.10.0",
+    "eslint-plugin-import": "^2.18.2",
+    "eslint-plugin-promise": "^4.2.1",
+    "eslint-plugin-react": "^7.16.0",
+    "eslint-plugin-react-hooks": "^3.0.0",
+    "gulp": "^3.9.1",
+    "html-webpack-plugin": "^4.3.0",
+    "husky": "^3.0.9",
+    "less": "^3.12.2",
+    "less-loader": "^7.0.0",
+    "lint-staged": "^9.4.3",
+    "mini-css-extract-plugin": "^0.10.0",
+    "prettier": "^1.19.1",
+    "react": "^16.13.1",
+    "react-dom": "^16.13.1",
+    "rimraf": "^3.0.2",
+    "stylelint": "^13.5.0",
+    "stylelint-config-prettier": "^8.0.1",
+    "stylelint-config-standard": "^20.0.0",
+    "ts-loader": "^6.2.1",
+    "typescript": "3.8.3",
+    "webpack": "^4.44.1",
+    "webpack-cli": "^3.3.12",
+    "webpack-dev-server": "^3.11.0"
+  },
+  "peerDependencies": {
+    "react": ">=16.0.0",
+    "react-dom": ">=16.0.0"
+  },
+  "config": {
+    "commitizen": {
+      "path": "cz-conventional-changelog"
+    }
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged",
+      "commit-msg": "commitlint -E HUSKY_GIT_PARAMS",
+      "prepare-commit-msg": "exec < /dev/tty && git cz --hook || true"
+    }
+  },
+  "lint-staged": {
+    "src/**/*.ts": [
+      "npm run eslint",
+      "npm run format:check:ts"
+    ],
+    "src/**/*.less": [
+      "npm run stylelint",
+      "npm run format:check:style"
+    ]
+  },
+  "dependencies": {
+    "classnames": "^2.2.6"
+  }
+}

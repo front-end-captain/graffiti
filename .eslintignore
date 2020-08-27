@@ -1,0 +1,16 @@
+/es/**
+/lib/**
+/coverage/**
+/docs/**
+/jsdoc/**
+/template/**
+/public/**
+/tests/**
+/node_modules/**
+/.storybook/**
+/example/**
+**/*.snap
+jest.config.js
+babel.config.js
+commitlint.config.js
+gulpfile.js
