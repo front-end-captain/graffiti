@@ -5,6 +5,7 @@
   "extends": ["leap"],
   "env": { "es2017": true },
   "rules": {
-    "import/no-extraneous-dependencies": "off"
+    "import/no-extraneous-dependencies": "off",
+    "no-restricted-properties": "off"
   }
 }

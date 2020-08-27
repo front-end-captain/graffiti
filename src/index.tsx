@@ -12,15 +12,29 @@ export interface GraffitiProps {
 }
 
 class Graffiti extends Component<GraffitiProps> {
+  private graffito: Graffito | null;
+
+  constructor(props: GraffitiProps) {
+    super(props);
+
+    this.graffito = null;
+  }
+
   componentDidMount() {
     const { backgroundImageURL } = this.props;
 
     const canvas = document.getElementById("graffiti");
 
     if (canvas) {
-      new Graffito(canvas as HTMLCanvasElement, { backgroundImageURL });
+      this.graffito = new Graffito(canvas as HTMLCanvasElement, { backgroundImageURL });
     }
   }
+
+  handleExportGraffiti = () => {
+    if (this.graffito) {
+      this.graffito.toDataUrl();
+    }
+  };
 
   render() {
     const { className, style } = this.props;
@@ -28,6 +42,8 @@ class Graffiti extends Component<GraffitiProps> {
     return (
       <div className={ClassNames("graffiti-wrapper", className)} style={style}>
         <canvas id="graffiti">Your browser not supported canvas!!!</canvas>
+
+        <button onClick={this.handleExportGraffiti}>export</button>
       </div>
     );
   }
