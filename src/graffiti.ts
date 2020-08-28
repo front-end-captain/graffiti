@@ -120,7 +120,9 @@ class Graffito {
       }
     };
 
-    image.src = dataUrl;
+    image.src = `${dataUrl}?time=${new Date().valueOf()}`;
+    image.setAttribute("crossOrigin", "anonymous");
+
     this.isCanvasClear = false;
   }
 
@@ -338,8 +340,9 @@ class Graffito {
     return this.isCanvasClear;
   }
 
-  public toDataUrl(): string {
-    return this.canvas.toDataURL("image/png", 1);
+  public toDataUrl(type = "image/png", quality?: number): string {
+    // TODO export svg(image/svg+xml)
+    return this.canvas.toDataURL(type, quality);
   }
 }
 

@@ -30,20 +30,12 @@ class Graffiti extends Component<GraffitiProps> {
     }
   }
 
-  handleExportGraffiti = () => {
-    if (this.graffito) {
-      this.graffito.toDataUrl();
-    }
-  };
-
   render() {
     const { className, style } = this.props;
 
     return (
       <div className={ClassNames("graffiti-wrapper", className)} style={style}>
         <canvas id="graffiti">Your browser not supported canvas!!!</canvas>
-
-        <button onClick={this.handleExportGraffiti}>export</button>
       </div>
     );
   }
