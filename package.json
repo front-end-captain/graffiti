@@ -13,9 +13,9 @@
   "scripts": {
     "eslint": "eslint --config .eslintrc --ext .ts,.tsx src/",
     "eslint:fix": "eslint --fix --config .eslintrc --ext .ts,.tsx src/",
-    "format:check:style": "prettier --check 'src/**/*.{less}'",
+    "format:check:style": "prettier --check 'src/**/*.less'",
     "format:check:ts": "prettier --check 'src/**/*.{ts,tsx}'",
-    "format:style": "prettier --write 'src/**/*.{less}'",
+    "format:style": "prettier --write 'src/**/*.less'",
     "format:ts": "prettier --write 'src/**/*.{ts,tsx}'",
     "stylelint": "stylelint src/**/*.{less}",
     "prepublishOnly": "npm run build",

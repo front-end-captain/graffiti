@@ -2,7 +2,7 @@ import { Bezier } from "./bezier";
 import { BasicPoint, Point } from "./point";
 
 interface Options {
-  backgroundImageURL?: string;
+  backgroundImageURL: string;
 }
 
 interface PointGroup {
@@ -17,6 +17,7 @@ class Graffito {
   private backgroundColor: string;
   private pencilColor: string;
   private backgroundImageURL?: string;
+  private backgroundImage: HTMLImageElement | null;
   private minWidth: number;
   private maxWidth: number;
   private isCanvasClear: boolean;
@@ -27,8 +28,9 @@ class Graffito {
   private lastWidth: number;
   private minDistance: number;
   private velocityFilterWeight: number;
+  private mode: "line" | "arrow";
 
-  constructor(canvas: HTMLCanvasElement, options: Options = {}) {
+  constructor(canvas: HTMLCanvasElement, options: Options) {
     const _context = canvas.getContext("2d");
 
     if (!_context) {
@@ -40,12 +42,13 @@ class Graffito {
     this.context = _context;
 
     this.backgroundImageURL = options.backgroundImageURL;
+    this.backgroundImage = null;
 
     this.mouseButtonDown = false;
     this.backgroundColor = "#fff";
-    this.pencilColor = "#555";
-    this.minWidth = 0.5;
-    this.maxWidth = 2.5;
+    this.pencilColor = "#333333";
+    this.minWidth = 1;
+    this.maxWidth = 3;
     this.dotSize = (this.minWidth + this.maxWidth) / 2;
     this.data = [];
     this.minDistance = 5;
@@ -54,20 +57,23 @@ class Graffito {
     this.lastPoints = [];
     this.lastVelocity = 0;
     this.lastWidth = 0;
+    this.mode = "line";
 
     this.clear();
 
     this.bindEvent();
 
-    if (this.backgroundImageURL) {
-      this.fromDataURL(this.backgroundImageURL);
-    }
+    this.fromDataURL(this.backgroundImageURL);
   }
 
   private clear() {
     this.context.fillStyle = this.backgroundColor;
     this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
     this.context.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+    if (this.backgroundImage) {
+      this.context.drawImage(this.backgroundImage, 0, 0, this.canvas.width, this.canvas.height);
+    }
 
     this.reset();
     this.data = [];
@@ -87,6 +93,20 @@ class Graffito {
         // TODO handle touch event
       }
     }
+  }
+
+  public offEvent(): void {
+    // Enable panning/zooming when touching canvas element
+    this.canvas.style.touchAction = "auto";
+    this.canvas.style.msTouchAction = "auto";
+
+    this.canvas.removeEventListener("pointerdown", this.handleMouseDown);
+    this.canvas.removeEventListener("pointermove", this.handleMouseMove);
+    document.removeEventListener("pointerup", this.handleMouseUp);
+
+    this.canvas.removeEventListener("mousedown", this.handleMouseDown);
+    this.canvas.removeEventListener("mousemove", this.handleMouseMove);
+    document.removeEventListener("mouseup", this.handleMouseUp);
   }
 
   private fromDataURL(dataUrl: string, callback?: (error?: string | Event) => void): void {
@@ -110,10 +130,13 @@ class Graffito {
 
       this.context.drawImage(image, 0, 0, w, h);
 
+      this.backgroundImage = image;
+
       if (callback) {
         callback();
       }
     };
+
     image.onerror = (error): void => {
       if (callback) {
         callback(error);
@@ -264,8 +287,11 @@ class Graffito {
 
       if (!lastPoint) {
         this.drawDot({ color, point });
-      } else if (curve) {
+      } else if (curve && this.mode === "line") {
         this.drawCurve({ color, curve });
+      } else if (curve && this.mode === "arrow") {
+        // eslint-disable-next-line no-console
+        console.log("draw arrow");
       }
 
       lastPoints.push({
@@ -336,6 +362,56 @@ class Graffito {
     ctx.fill();
   }
 
+  public fromData(pointGroups: PointGroup[]): void {
+    this.clear();
+
+    this._fromData(
+      pointGroups,
+      ({ color, curve }) => this.drawCurve({ color, curve }),
+      ({ color, point }) => this.drawDot({ color, point }),
+    );
+
+    this.data = pointGroups;
+  }
+
+  private _fromData(
+    pointGroups: PointGroup[],
+    drawCurve: Graffito["drawCurve"],
+    drawDot: Graffito["drawDot"],
+  ): void {
+    for (const group of pointGroups) {
+      const { color, points } = group;
+
+      if (points.length > 1) {
+        for (let j = 0; j < points.length; j += 1) {
+          const basicPoint = points[j];
+          const point = new Point(basicPoint.x, basicPoint.y, basicPoint.time);
+
+          // All points in the group have the same color, so it's enough to set
+          // penColor just at the beginning.
+          this.pencilColor = color;
+
+          if (j === 0) {
+            this.reset();
+          }
+
+          const curve = this.addPoint(point);
+
+          if (curve) {
+            drawCurve({ color, curve });
+          }
+        }
+      } else {
+        this.reset();
+
+        drawDot({
+          color,
+          point: points[0],
+        });
+      }
+    }
+  }
+
   public isCanvasEmpty(): boolean {
     return this.isCanvasClear;
   }
@@ -343,6 +419,34 @@ class Graffito {
   public toDataUrl(type = "image/png", quality?: number): string {
     // TODO export svg(image/svg+xml)
     return this.canvas.toDataURL(type, quality);
+  }
+
+  public clearGraffito() {
+    this.clear();
+  }
+
+  public setPencilColor(color: string) {
+    if (this.data) {
+      this.pencilColor = color;
+    }
+  }
+
+  public setPencilSize(size: number) {
+    this.maxWidth = size + 1;
+    this.minWidth = size - 1;
+    this.dotSize = (this.minWidth + this.maxWidth) / 2;
+  }
+
+  public setMode(mode: "line" | "arrow") {
+    this.mode = mode;
+  }
+
+  public undo() {
+    // TODO undo
+  }
+
+  public redo() {
+    // TODO redo
   }
 }
 
