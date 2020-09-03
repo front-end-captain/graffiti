@@ -12,12 +12,31 @@
     height: auto;
     position: relative;
 
-    .upper-canvas {
+    // .lower-canvas {
+    //   position: absolute;
+    //   top: 0;
+    //   left: 0;
+    //   bottom: 0;
+    //   right: 0;
+    // }
+
+    #text-box-wrapper {
       position: absolute;
       top: 0;
-      left: 0;
-      bottom: 0;
       right: 0;
+
+      span {
+        position: absolute;
+        font-size: 30px;
+        border: 1px solid #fff;
+        padding: 0 8px;
+        text-align: left;
+        height: 30px;
+        line-height: 0.85;
+        box-sizing: content-box;
+        font-weight: bold;
+        word-break: keep-all;
+      }
     }
   }
 

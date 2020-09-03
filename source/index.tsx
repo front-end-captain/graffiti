@@ -1,7 +1,7 @@
 import React, { Component, CSSProperties, ChangeEvent, ReactNode } from "react";
 import ClassNames from "classnames";
 
-import { Graffito } from "./graffiti";
+import { Sketchpad } from "./Sketchpad";
 
 import "./style";
 
@@ -29,13 +29,15 @@ interface GraffitiState {
   inputVisible: boolean;
   inputValue: string;
   currentOperator?: OperatorName;
-  lineColor: string;
-  lineSize: number;
+  curveColor: string;
+  curveSize: number;
+  arrowColor: string;
+  arrowSize: number;
   textColor: string;
 }
 
 class Graffiti extends Component<GraffitiProps, GraffitiState> {
-  private graffito: Graffito | null;
+  private graffito: Sketchpad | null;
   private inputRef: HTMLTextAreaElement | null;
 
   constructor(props: GraffitiProps) {
@@ -48,8 +50,10 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
       inputVisible: false,
       inputValue: "",
       currentOperator: undefined,
-      lineColor: colorList[0],
-      lineSize: dotSizeList[0],
+      curveColor: colorList[0],
+      curveSize: dotSizeList[0],
+      arrowColor: colorList[0],
+      arrowSize: dotSizeList[0],
       textColor: colorList[0],
     };
   }
@@ -58,12 +62,11 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
     const { backgroundImageURL } = this.props;
 
     const canvas = document.getElementById("graffiti") as HTMLCanvasElement;
-    const upperCanvas = document.getElementById("graffiti-cover") as HTMLCanvasElement;
 
     if (canvas) {
-      this.graffito = new Graffito(canvas, upperCanvas, {
+      this.graffito = new Sketchpad(canvas, {
         backgroundImageURL,
-        onSelectText: this.handleSelectText,
+        // onSelectText: this.handleSelectText,
       });
     }
   }
@@ -79,8 +82,17 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
   };
 
   setPencilColor = (color: string) => {
-    this.setState({ lineColor: color });
-    this.graffito?.setPencilColor(color);
+    const { currentOperator } = this.state;
+
+    if (currentOperator === "pencil") {
+      this.setState({ curveColor: color });
+      this.graffito?.setCurveColor(color);
+    }
+
+    if (currentOperator === "arrow") {
+      this.setState({ arrowColor: color });
+      this.graffito?.setArrowColor(color);
+    }
   };
 
   setTextColor = (color: string) => {
@@ -88,18 +100,19 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
   };
 
   setPencilSize = (size: number) => {
-    this.setState({ lineSize: size });
     if (this.state.currentOperator === "pencil") {
-      this.graffito?.setPencilSize(size);
+      this.graffito?.setCurveSize(size);
+      this.setState({ curveSize: size });
     }
     if (this.state.currentOperator === "arrow") {
       this.graffito?.setArrowSize(size);
+      this.setState({ arrowSize: size });
     }
   };
 
   setOperator = (name: OperatorName) => {
     if (name === "pencil") {
-      this.graffito?.setMode("line");
+      this.graffito?.setMode("curve");
     }
     if (name === "text") {
       this.inputRef?.focus();
@@ -111,8 +124,8 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
     }
     this.setState({
       currentOperator: name,
-      lineColor: colorList[0],
-      lineSize: dotSizeList[0],
+      curveColor: colorList[0],
+      curveSize: dotSizeList[0],
       textColor: colorList[0],
     });
   };
@@ -131,7 +144,7 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
 
   handleConfirmInput = () => {
     const { inputValue, textColor } = this.state;
-    this.graffito?.drawText(inputValue, textColor, 20, 200);
+    this.graffito?.addText(inputValue, textColor);
     this.setState({ inputValue: "", inputVisible: false });
   };
 
@@ -160,20 +173,22 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
       inputVisible,
       inputValue,
       currentOperator,
-      lineColor,
-      lineSize,
+      curveColor,
+      curveSize,
       textColor,
+      arrowSize,
+      arrowColor,
     } = this.state;
 
     return (
       <div className={ClassNames("graffiti-wrapper", className)} style={style}>
         <div className="canvas-container">
-          <canvas className="upper-canvas" id="graffiti-cover">
-            Your browser not supported canvas!!!
-          </canvas>
           <canvas id="graffiti" className="lower-canvas">
             Your browser not supported canvas!!!
           </canvas>
+          <div id="text-box-wrapper">
+            {/* <span>cccccc</span> */}
+          </div>
         </div>
 
         <div className="operator-group">
@@ -234,9 +249,16 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
         >
           <ul className="dot-size-list">
             {dotSizeList.map((size, i) => {
+              let selected = false;
+              if (currentOperator === "arrow") {
+                selected = size === arrowSize;
+              }
+              if (currentOperator === "pencil") {
+                selected = size === curveSize;
+              }
               return (
                 <li
-                  className={ClassNames("dot-size-list-item", { selected: size === lineSize })}
+                  className={ClassNames("dot-size-list-item", { selected })}
                   onClick={() => this.setPencilSize(size)}
                   key={i}
                   style={{ width: size + 10, height: size + 10 }}
@@ -247,9 +269,16 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
           <span className="divider" />
           <ul className="line-color-list">
             {colorList.map((color, i) => {
+              let selected = false;
+              if (currentOperator === "arrow") {
+                selected = color === arrowColor;
+              }
+              if (currentOperator === "pencil") {
+                selected = color === curveColor;
+              }
               return (
                 <li
-                  className={ClassNames("line-color-list-item", { selected: color === lineColor })}
+                  className={ClassNames("line-color-list-item", { selected })}
                   onClick={() => this.setPencilColor(color)}
                   key={i}
                   style={{ backgroundColor: color }}

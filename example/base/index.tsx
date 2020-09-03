@@ -1,7 +1,7 @@
 import React, { FunctionComponent } from "react";
 import ReactDOM from "react-dom";
 
-import { Graffiti } from "../../src";
+import { Graffiti } from "../../source";
 
 import "./index.less";
 
