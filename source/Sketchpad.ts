@@ -224,6 +224,25 @@ class Sketchpad {
 
     if (this.mode === "arrow") {
       this.drawArrow(startPoint, point, color, size);
+      lastPoints.push(point);
+      // lastDrawDataGroup.startPoint = endPoint;
+      // lastDrawDataGroup.endPoint = point;
+      // // lastDrawDataGroup.startPoint = endPoint;
+
+      // const drawData = Array.from(this.drawData);
+
+      // this.clear();
+
+      // this.drawData = drawData;
+
+      // window.requestAnimationFrame(() => {
+      //   this._fromData(
+      //     drawData,
+      //     (beginPoint, endPoint, color, size) => this.drawCurve(beginPoint, endPoint, color, size),
+      //     (beginPoint, endPoint, color, size) => this.drawArrow(beginPoint, endPoint, color, size),
+      //   );
+      // });
+
     }
   }
 
@@ -234,15 +253,16 @@ class Sketchpad {
 
   private handleMouseDown = (event: MouseEvent): void => {
     // console.log("%cMouseDownEvent", "color: red", event);
-    if (this.mode === null) {
-      return;
-    }
 
-    // TODO 选中文字
+    if ((event.target as HTMLCanvasElement).id === "graffiti") {
+      if (this.mode === null) {
+        return;
+      }
 
-    if (event.which === 1) {
-      this.isMouseDown = true;
-      this.strokeBegin(event);
+      if (event.which === 1) {
+        this.isMouseDown = true;
+        this.strokeBegin(event);
+      }
     }
   };
 
@@ -334,37 +354,19 @@ class Sketchpad {
   private drawText(text: string, color: string) {
     if (text === "") return;
 
-    const singleWidth = this.context.measureText(text[0]).width;
-    const len = text.length;
-    const max = this.canvas.width - 40;
-    const num = Math.floor(max / singleWidth);
-    const arr = [];
-
-    let last = 0,
-      width = 0,
-      height = 0;
-
-    while (last < len) {
-      height += singleWidth + 2;
-      arr.push(text.slice(last, last + num));
-      last = last + num;
-    }
-
-    if (height === singleWidth + 2) {
-      width = singleWidth * text.length;
-    } else {
-      width = singleWidth * num;
-    }
+    this.context.font = "30px PingFangSC-Semibold, PingFang SC";
+    const { width } = this.context.measureText(text);
 
     const textBox = document.createElement("span");
 
-    // console.log(width);
-    
+    const right = this.canvas.width / 2 - (width + 25) / 2;
 
     textBox.innerText = text;
     textBox.style.color = color;
-    textBox.style.right = `${this.canvas.width / 2 - width / 2}px`;
-    textBox.style.top = `${this.canvas.height / 2 - height / 2}px`;
+    textBox.style.right = `${right < 0 ? 10 : right}px`;
+    textBox.style.top = `${this.canvas.height / 2 - 32 / 2}px`;
+    textBox.style.maxWidth = `${this.canvas.width}px`;
+    textBox.style.width = `${width > this.canvas.width ? this.canvas.width - 25 : width}px`;
 
     const textBoxWrapper = document.getElementById("text-box-wrapper");
 
@@ -375,7 +377,7 @@ class Sketchpad {
       type: "text",
       text,
       width,
-      height,
+      height: 32,
       size: 30,
       startPoint: { x: 20, y: 20, time: new Date().getTime() },
       endPoint: { x: 20, y: 20, time: new Date().getTime() },

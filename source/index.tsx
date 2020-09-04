@@ -39,6 +39,7 @@ interface GraffitiState {
 class Graffiti extends Component<GraffitiProps, GraffitiState> {
   private graffito: Sketchpad | null;
   private inputRef: HTMLTextAreaElement | null;
+  private canvas: HTMLCanvasElement;
 
   constructor(props: GraffitiProps) {
     super(props);
@@ -64,6 +65,7 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
     const canvas = document.getElementById("graffiti") as HTMLCanvasElement;
 
     if (canvas) {
+      this.canvas = canvas;
       this.graffito = new Sketchpad(canvas, {
         backgroundImageURL,
         // onSelectText: this.handleSelectText,
@@ -144,7 +146,10 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
 
   handleConfirmInput = () => {
     const { inputValue, textColor } = this.state;
-    this.graffito?.addText(inputValue, textColor);
+
+    // console.log(this.insertLineBreak(inputValue));
+
+    this.graffito?.addText(this.insertLineBreak(inputValue), textColor);
     this.setState({ inputValue: "", inputVisible: false });
   };
 
@@ -155,6 +160,40 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
       onConfirm(this.graffito.toDataUrl("image/png", 1));
     }
   };
+
+  insertLineBreak(text: string): string {
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+    if (!context) {
+      return "";
+    }
+
+    if (!this.inputRef) {
+      return "";
+    }
+
+    context.font = "30px PingFangSC-Semibold, PingFang SC";
+    const canvasWidth = this.canvas.getBoundingClientRect().width || 0;
+
+    const wordList = text.split("");
+
+    let res = "";
+
+    let totalWidthOfLine = 0;
+
+    wordList.forEach((w) => {
+      const wordWidth = context?.measureText(w).width || 0;
+      totalWidthOfLine += wordWidth;
+      res += w;
+
+      if (totalWidthOfLine > (canvasWidth - 50)) {
+        res += "\n";
+        totalWidthOfLine = 0;
+      }
+    });
+
+    return res;
+  }
 
   render() {
     const {
@@ -186,9 +225,7 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
           <canvas id="graffiti" className="lower-canvas">
             Your browser not supported canvas!!!
           </canvas>
-          <div id="text-box-wrapper">
-            {/* <span>cccccc</span> */}
-          </div>
+          <div id="text-box-wrapper">{/* <span>cccccc</span> */}</div>
         </div>
 
         <div className="operator-group">
@@ -261,7 +298,7 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
                   className={ClassNames("dot-size-list-item", { selected })}
                   onClick={() => this.setPencilSize(size)}
                   key={i}
-                  style={{ width: size + 10, height: size + 10 }}
+                  style={{ width: size + 5 + i, height: size + 5 + i }}
                 />
               );
             })}
@@ -308,6 +345,9 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
             onChange={this.handleInputChange}
             value={inputValue}
             style={{ color: textColor }}
+            wrap="hard"
+            rows={5}
+            cols={21}
           />
 
           <ul className="text-color-list">

@@ -5,9 +5,9 @@ import { Graffiti } from "../../source";
 
 import "./index.less";
 
-// const bg = "https://media.prod.mdn.mozit.cloud/attachments/2013/06/22/5397/7a3ec0cae64a95ad454ac3bc2c71c004/rhino.jpg";
+const bg = "https://media.prod.mdn.mozit.cloud/attachments/2013/06/22/5397/7a3ec0cae64a95ad454ac3bc2c71c004/rhino.jpg";
 // const bg = "https://media.prod.mdn.mozit.cloud/attachments/2012/07/09/205/c86a62360a8c3b1347e651244d6b3137/Canvas_art_gallery.jpg";
-const bg = "https://s1.firstleap.cn/s/visitor/55853793621113051598262939310.png";
+// const bg = "https://s1.firstleap.cn/s/visitor/55853793621113051598262939310.png";
 
 const Base: FunctionComponent = () => {
   return (
