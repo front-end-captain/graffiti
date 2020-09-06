@@ -63,7 +63,7 @@ module.exports = {
 
   devServer: {
     open: false,
-    host: "localhost",
+    host: "0.0.0.0",
     port: "8000",
     contentBase: BUILD_PATH,
     hot: true,

@@ -1,3 +1,5 @@
+import HammerJs from "hammerjs";
+
 export interface SketchpadInitOptions {
   backgroundImageURL: string;
   backgroundColor?: string;
@@ -5,6 +7,8 @@ export interface SketchpadInitOptions {
   curveSize?: number;
   arrowColor?: string;
   arrowSize?: number;
+  onSelectText?: (text: string, index: number) => void;
+  onDrawEnd?: (drawData: DrawDataGroup[], canUndo: boolean, canRedo: boolean) => void;
 }
 
 type Mode = "curve" | "arrow" | "text";
@@ -15,21 +19,24 @@ interface BasicPoint {
   time: number;
 }
 
-interface DrawDataGroup {
+export interface DrawDataGroup {
   color: string;
   type: Mode;
-  text: string;
+  activity?: boolean;
+  text?: string;
   size: number;
+  element?: HTMLSpanElement;
   width?: number;
   height?: number;
-  startPoint: BasicPoint;
-  endPoint: BasicPoint;
+  left?: number;
+  top?: number;
   points: BasicPoint[];
 }
 
 class Sketchpad {
   private canvas: HTMLCanvasElement;
   private context: CanvasRenderingContext2D;
+  private CANVAS_CONTAINER: HTMLElement | null;
 
   private options: SketchpadInitOptions;
 
@@ -46,9 +53,15 @@ class Sketchpad {
 
   private isMouseDown: boolean;
 
-  private drawData: DrawDataGroup[];
+  private fullDrawData: DrawDataGroup[];
   private currentDrawData: DrawDataGroup[];
-  private _index: number;
+  // private currentDrawDataIndex: number;
+
+  private deleteZoneElement: HTMLElement | null;
+
+  private textBoxWrapper: HTMLElement | null;
+
+  // private scale: number;
 
   constructor(canvas: HTMLCanvasElement, options: SketchpadInitOptions) {
     const _context = canvas.getContext("2d");
@@ -58,6 +71,8 @@ class Sketchpad {
 
     this.canvas = canvas;
     this.context = _context;
+
+    this.CANVAS_CONTAINER = this.canvas.parentElement;
 
     this.options = options;
 
@@ -74,9 +89,15 @@ class Sketchpad {
     this.arrowColor = options.arrowColor || "#fff";
     this.arrowSize = options.arrowSize || 1;
 
-    this.drawData = [];
+    this.fullDrawData = [];
     this.currentDrawData = [];
-    this._index = 0;
+    // this.currentDrawDataIndex = 0;
+
+    this.deleteZoneElement = document.getElementById("delete-zone");
+
+    this.textBoxWrapper = document.getElementById("text-box-wrapper");
+
+    // this.scale = -1;
 
     this.clear();
 
@@ -92,14 +113,13 @@ class Sketchpad {
     if (this.backgroundImage) {
       this.context.drawImage(this.backgroundImage, 0, 0, this.canvas.width, this.canvas.height);
     }
-
-    this.currentDrawData = [];
-    this.drawData = [];
   }
 
   private bindEvent(): void {
     this.canvas.style.touchAction = "none";
     this.canvas.style.msTouchAction = "none";
+
+    this.handlePanEvents();
 
     if (window.PointerEvent) {
       this.handlePointerEvents();
@@ -160,8 +180,8 @@ class Sketchpad {
       }
     };
 
-    image.src = `${dataUrl}?time=${new Date().valueOf()}`;
     image.setAttribute("crossOrigin", "anonymous");
+    image.src = `${dataUrl}?time=${new Date().valueOf()}`;
   }
 
   private strokeBegin(event: MouseEvent) {
@@ -187,13 +207,12 @@ class Sketchpad {
       type: this.mode,
       text: "",
       size,
-      startPoint: this.createPoint(event.clientX, event.clientY),
-      endPoint: this.createPoint(event.clientX, event.clientY),
-      points: [],
+      points: [this.createPoint(event.clientX, event.clientY)],
     };
 
-    this.drawData.push(newDrawDataGroup);
-    this.currentDrawData = this.drawData;
+    this.currentDrawData.push(newDrawDataGroup);
+    // this.currentDrawDataIndex = this.currentDrawData.length - 1;
+    this.fullDrawData = this.currentDrawData;
 
     this.strokeUpdate(event);
   }
@@ -201,7 +220,7 @@ class Sketchpad {
   private strokeUpdate(event: MouseEvent) {
     // console.log("%cStrokeUpdate", "color: red", event);
 
-    if (this.drawData.length === 0) {
+    if (this.currentDrawData.length === 0) {
       this.strokeBegin(event);
       return;
     }
@@ -211,44 +230,37 @@ class Sketchpad {
 
     const point = this.createPoint(x, y);
 
-    const lastDrawDataGroup = this.drawData[this.drawData.length - 1];
+    const lastDrawDataGroup = this.currentDrawData[this.currentDrawData.length - 1];
 
-    const { startPoint, endPoint, points: lastPoints, color, size } = lastDrawDataGroup;
+    const { points, color, size } = lastDrawDataGroup;
+
+    const lastPoint = points[points.length - 1];
+    const firstPoint = points[0];
 
     if (this.mode === "curve") {
-      this.drawCurve(startPoint, point, color, size);
-      lastPoints.push(point);
-      lastDrawDataGroup.startPoint = endPoint;
-      lastDrawDataGroup.endPoint = point;
+      this.drawCurve(this.context, lastPoint, point, color, size);
+      lastDrawDataGroup.points.push(point);
     }
 
     if (this.mode === "arrow") {
-      this.drawArrow(startPoint, point, color, size);
-      lastPoints.push(point);
-      // lastDrawDataGroup.startPoint = endPoint;
-      // lastDrawDataGroup.endPoint = point;
-      // // lastDrawDataGroup.startPoint = endPoint;
+      window.requestAnimationFrame(() => {
+        lastDrawDataGroup.points.push(point);
+        this.drawArrow(this.context, firstPoint, point, color, size);
 
-      // const drawData = Array.from(this.drawData);
+        this.clear();
 
-      // this.clear();
-
-      // this.drawData = drawData;
-
-      // window.requestAnimationFrame(() => {
-      //   this._fromData(
-      //     drawData,
-      //     (beginPoint, endPoint, color, size) => this.drawCurve(beginPoint, endPoint, color, size),
-      //     (beginPoint, endPoint, color, size) => this.drawArrow(beginPoint, endPoint, color, size),
-      //   );
-      // });
-
+        this._fromData(this.context, this.currentDrawData);
+      });
     }
   }
 
   private strokeEnd(event: MouseEvent) {
     // console.log("%cStrokeEnd", "color: red", event);
     this.strokeUpdate(event);
+
+    if (this.options.onDrawEnd) {
+      this.options.onDrawEnd(this.currentDrawData, this.getCanUndo(), this.getCanRedo());
+    }
   }
 
   private handleMouseDown = (event: MouseEvent): void => {
@@ -297,25 +309,159 @@ class Sketchpad {
     document.addEventListener("mouseup", this.handleMouseUp);
   }
 
-  private drawCurve(beginPoint: BasicPoint, endPoint: BasicPoint, color: string, size: number) {
-    this.context.save();
+  private handlePanEvents() {
+    if (!this.CANVAS_CONTAINER) {
+      return;
+    }
 
-    this.context.beginPath();
-    this.context.lineCap = "round";
-    this.context.lineWidth = size;
-    this.context.lineJoin = "round";
-    this.context.strokeStyle = color;
-    this.context.moveTo(beginPoint.x, beginPoint.y);
-    this.context.lineTo(endPoint.x, endPoint.y);
-    this.context.stroke();
-    this.context.closePath();
+    const hammer = new HammerJs(this.CANVAS_CONTAINER);
+
+    const _this = this;
+
+    hammer.on("tap", function(e) {
+      // console.log("tap", e);
+      if (e.target.nodeName === "SPAN") {
+        // console.log("tap text");
+        // console.log(e.target.dataset["order"]);
+        if (typeof _this.options.onSelectText === "function") {
+          _this.options.onSelectText(e.target.innerText, Number(e.target.dataset["order"]));
+        }
+        if (!e.target.className.includes("activity")) {
+          e.target.classList.add("activity");
+        }
+      } else {
+        _this.currentDrawData = _this.currentDrawData.map((d) => {
+          if (d.type === "text") {
+            if (d.element) {
+              d.element.classList.remove("activity");
+            }
+
+            return { ...d, activity: false };
+          }
+
+          return d;
+        });
+
+        _this.fullDrawData = _this.currentDrawData;
+      }
+    });
+
+    let initX = 0;
+    let initY = 0;
+
+    const disY = window.innerHeight - 190;
+    // const disX = (window.innerWidth - 160) / 2;
+
+    hammer.on("panstart", (e) => {
+      if (e.target.nodeName === "SPAN") {
+        if (!e.target.className.includes("activity")) {
+          e.target.classList.add("activity");
+        }
+
+        // console.log("pan start", e.deltaX, e.deltaY);
+        // console.log("last pos(pan start)", e.target.offestLeft, e.target.offsetTop);
+        // console.log("init x y(pan start)", initX, initY);
+
+        this.deleteZoneElement?.classList.add("activity");
+
+        initX = e.target.offsetLeft;
+        initY = e.target.offsetTop;
+
+        e.target.style.left = `${initX}px`;
+        e.target.style.top = `${initY}px`;
+      }
+    });
+
+    hammer.on("panmove", function(e) {
+      if (e.target.nodeName === "SPAN") {
+        // console.log("pan move", e.deltaX, e.deltaY);
+        // console.log("last pos(pan move)", e.target.offsetLeft, e.target.offsetTop);
+        // console.log("init x y(pan move)", initX, initY);
+
+        e.target.style.left = `${initX + e.deltaX}px`;
+        e.target.style.top = `${initY + e.deltaY}px`;
+
+        // console.log(initY + e.deltaY, dis);
+
+        if (initY + e.deltaY + 10 > disY) {
+          _this.deleteZoneElement?.classList.add("danger");
+        }
+        if (initY + e.deltaY - 50 < disY) {
+          _this.deleteZoneElement?.classList.remove("danger");
+        }
+      }
+    });
+
+    hammer.on("panend", function(e) {
+      if (e.target.nodeName === "SPAN") {
+        // console.log("pan end", e.deltaX, e.deltaY);
+        // console.log("last pos(pan end)", e.target.offsetLeft, e.target.offsetTop);
+        // console.log("init x y(pan move)", initX, initY);
+
+        initX = 0;
+        initY = 0;
+
+        e.target.style.left = `${e.target.offsetLeft}px`;
+        e.target.style.top = `${e.target.offsetTop}px`;
+
+        _this.deleteZoneElement?.classList.remove("activity");
+
+        let order = 0;
+        const index = Number(e.target.dataset["order"]);
+        _this.currentDrawData = _this.currentDrawData.map((d) => {
+          if (d.type === "text") {
+            order += 1;
+            if (d.element && order === index) {
+              return { ...d, left: e.target.offsetLeft, top: e.target.offsetTop };
+            }
+            return d;
+          }
+
+          return d;
+        });
+
+        if (e.target.offsetTop + 10 > disY) {
+          _this.currentDrawData = _this.currentDrawData.filter(
+            (d) => d.text !== e.target.innerText,
+          );
+          _this.fullDrawData = _this.currentDrawData;
+
+          _this.textBoxWrapper?.removeChild(e.target);
+        }
+      }
+    });
   }
 
-  private drawArrow(beginPoint: BasicPoint, endPoint: BasicPoint, color: string, size: number) {
-    const ctx = this.context;
+  private drawCurve(
+    context: CanvasRenderingContext2D,
+    beginPoint: BasicPoint,
+    endPoint: BasicPoint,
+    color: string,
+    size: number,
+  ) {
+    context.save();
+
+    context.beginPath();
+    context.lineCap = "round";
+    context.lineWidth = size;
+    context.lineJoin = "round";
+    context.strokeStyle = color;
+    context.moveTo(beginPoint.x, beginPoint.y);
+    context.lineTo(endPoint.x, endPoint.y);
+    context.stroke();
+    context.closePath();
+    context.restore();
+  }
+
+  private drawArrow(
+    context: CanvasRenderingContext2D,
+    beginPoint: BasicPoint,
+    endPoint: BasicPoint,
+    color: string,
+    size: number,
+  ) {
     const theta = 30;
     const hypotenuse = 10;
-    const width = size;
     const fromX = beginPoint.x;
     const fromY = beginPoint.y;
     const toX = endPoint.x;
@@ -329,60 +475,87 @@ class Sketchpad {
     const botX = hypotenuse * Math.cos(angle2);
     const botY = hypotenuse * Math.sin(angle2);
 
-    ctx.save();
-    ctx.beginPath();
+    context.save();
+
+    context.beginPath();
 
     let arrowX = fromX - topX;
     let arrowY = fromY - topY;
 
-    ctx.moveTo(arrowX, arrowY);
-    ctx.moveTo(fromX, fromY);
-    ctx.lineTo(toX, toY);
+    context.moveTo(arrowX, arrowY);
+    context.moveTo(fromX, fromY);
+    context.lineTo(toX, toY);
     arrowX = toX + topX;
     arrowY = toY + topY;
-    ctx.moveTo(arrowX, arrowY);
-    ctx.lineTo(toX, toY);
+    context.moveTo(arrowX, arrowY);
+    context.lineTo(toX, toY);
     arrowX = toX + botX;
     arrowY = toY + botY;
-    ctx.lineTo(arrowX, arrowY);
-    ctx.strokeStyle = color;
-    ctx.lineWidth = width;
-    ctx.stroke();
-    ctx.restore();
+    context.lineTo(arrowX, arrowY);
+    context.strokeStyle = color;
+    context.lineWidth = size;
+    context.stroke();
+    context.closePath();
+    context.restore();
   }
 
-  private drawText(text: string, color: string) {
-    if (text === "") return;
-
-    this.context.font = "30px PingFangSC-Semibold, PingFang SC";
-    const { width } = this.context.measureText(text);
-
+  private drawText(text: string, color: string): DrawDataGroup {
+    // if (text === "") return;
     const textBox = document.createElement("span");
 
-    const right = this.canvas.width / 2 - (width + 25) / 2;
+    const { width, height, left, top } = this.setText(textBox, text, color);
 
-    textBox.innerText = text;
-    textBox.style.color = color;
-    textBox.style.right = `${right < 0 ? 10 : right}px`;
-    textBox.style.top = `${this.canvas.height / 2 - 32 / 2}px`;
-    textBox.style.maxWidth = `${this.canvas.width}px`;
-    textBox.style.width = `${width > this.canvas.width ? this.canvas.width - 25 : width}px`;
+    this.textBoxWrapper?.appendChild(textBox);
 
-    const textBoxWrapper = document.getElementById("text-box-wrapper");
-
-    textBoxWrapper?.appendChild(textBox);
-
-    this.drawData.push({
+    return {
       color,
-      type: "text",
+      type: "text" as Mode,
+      activity: true,
+      element: textBox,
       text,
       width,
-      height: 32,
+      height,
+      left,
+      top,
       size: 30,
-      startPoint: { x: 20, y: 20, time: new Date().getTime() },
-      endPoint: { x: 20, y: 20, time: new Date().getTime() },
-      points: [],
-    });
+      points: [] as BasicPoint[],
+    };
+  }
+
+  private setText(
+    textBoxElement: HTMLSpanElement,
+    text: string,
+    color: string,
+    initLeft?: number,
+    initTop?: number,
+  ) {
+    this.context.font = "30px PingFangSC-Semibold, PingFang SC";
+    const { width: textWidth } = this.context.measureText(text.split("\n")[0]);
+
+    // console.log("initLeft, initTop", initLeft, initTop);
+
+    const _left = this.canvas.width / 2 - (textWidth + 20) / 2;
+    const left = initLeft || (_left < 0 ? 10 : _left);
+    const top = initTop || this.canvas.height / 2 - 32 / 2;
+    const height = 32;
+    const width = textWidth > this.canvas.width ? this.canvas.width - 25 : textWidth;
+
+    textBoxElement.innerText = text;
+    textBoxElement.style.color = color;
+    textBoxElement.style.left = `${left}px`;
+    textBoxElement.style.top = `${top}px`;
+    textBoxElement.style.maxWidth = `${this.canvas.width}px`;
+    textBoxElement.style.width = `${width}px`;
+    textBoxElement.style.height = "auto";
+    textBoxElement.classList.add("text-box-item");
+    textBoxElement.classList.add("activity");
+    const order = textBoxElement.dataset["order"];
+    textBoxElement.setAttribute(
+      "data-order",
+      order || (this.getDrawedTextBoxLength() + 1).toString(),
+    );
+
+    return { width, height, left, top };
   }
 
   private createPoint(x: number, y: number): BasicPoint {
@@ -392,28 +565,68 @@ class Sketchpad {
   }
 
   private _fromData(
+    context: CanvasRenderingContext2D,
     drawDataGroup: DrawDataGroup[],
-    drawCurve: Sketchpad["drawCurve"],
-    drawArrow: Sketchpad["drawArrow"],
+    renderText = false,
   ) {
-    for (const drawData of drawDataGroup) {
-      const { color, points, startPoint, endPoint, size } = drawData;
+    if (drawDataGroup.length === 0) {
+      return;
+    }
 
-      if (points.length > 1) {
-        for (let j = 0; j < points.length; j += 1) {
-          drawCurve(points[j], points[j + 1], color, size);
+    for (const drawData of drawDataGroup) {
+      const { color, points, size, type } = drawData;
+
+      if (type === "curve") {
+        if (points.length > 1) {
+          for (let j = 0; j < points.length; j += 1) {
+            if (j < points.length - 1) {
+              this.drawCurve(context, points[j], points[j + 1], color, size);
+            }
+          }
         }
-      } else {
-        drawArrow(startPoint, endPoint, color, size);
+      }
+
+      if (type === "arrow") {
+        if (points.length > 1) {
+          this.drawArrow(context, points[0], points[points.length - 1], color, size);
+        }
+      }
+
+      if (renderText && type === "text") {
+        const textList = drawData.text?.split("\n");
+        context.save();
+        context.font = "30px PingFangSC-Semibold, PingFang SC";
+        context.fillStyle = color;
+        context.textAlign = "left";
+        context.textBaseline = "middle";
+        textList?.forEach((t, i) => {
+          context.fillText(t, drawData.left || 0, (drawData.top || 0) + i * 32);
+        });
+        context.restore();
       }
     }
   }
 
-  public toDataUrl(type = "image/png", quality?: number): string {
-    return this.canvas.toDataURL(type, quality);
+  private getDrawedTextBoxLength(): number {
+    return this.currentDrawData.filter((d) => d.type === "text").length;
   }
 
-  public setMode(mode: Mode) {
+  public toDataUrl(type = "image/png", quality?: number): string {
+    const _canvas = document.createElement("canvas");
+    _canvas.width = this.canvas.width;
+    _canvas.height = this.canvas.height;
+    const context = _canvas.getContext("2d");
+
+    if (context) {
+      context.drawImage(this.canvas, 0, 0, this.canvas.width, this.canvas.height);
+      const sortedDrawDataGroup = this.currentDrawData.sort((a, b) => a.type.localeCompare(b.type));
+      this._fromData(context, sortedDrawDataGroup, true);
+    }
+
+    return _canvas.toDataURL(type, quality);
+  }
+
+  public setMode(mode: Mode | null) {
     this.mode = mode;
   }
 
@@ -433,8 +646,91 @@ class Sketchpad {
     this.arrowSize = size;
   }
 
+  public undo() {
+    const _data = Array.from(this.currentDrawData);
+    _data.pop();
+
+    this.currentDrawData = _data;
+
+    this.clear();
+
+    this._fromData(this.context, this.currentDrawData);
+    // this.currentDrawDataIndex = this.currentDrawData.length - 1;
+  }
+
+  public redo() {
+    const _data = Array.from(this.currentDrawData);
+    const willAddedDrawData = this.fullDrawData[_data.length];
+    if (willAddedDrawData) {
+      _data.push(willAddedDrawData);
+
+      this.currentDrawData = _data;
+
+      this.clear();
+
+      this._fromData(this.context, this.currentDrawData);
+    }
+  }
+
+  public getCanUndo() {
+    return this.currentDrawData.length > 0;
+  }
+
+  public getCanRedo() {
+    return this.fullDrawData.length > this.currentDrawData.length;
+  }
+
   public addText(text: string, color: string) {
-    this.drawText(text, color);
+    this.currentDrawData.push(this.drawText(text, color));
+    // this.currentDrawDataIndex = this.currentDrawData.length - 1;
+    this.fullDrawData = this.currentDrawData;
+  }
+
+  public editText(text: string, color: string, index: number) {
+    let order = 0;
+    this.currentDrawData = this.currentDrawData.map((d) => {
+      if (d.type === "text") {
+        order += 1;
+        if (d.element && order === index) {
+          this.setText(d.element, text, color, d.left, d.top);
+        }
+        return { ...d, text, color };
+      }
+
+      return d;
+    });
+
+    this.fullDrawData = this.currentDrawData;
+    // this.currentDrawDataIndex = this.currentDrawData.length - 1;
+  }
+
+  public clean() {
+    this.clear();
+
+    this.currentDrawData = [];
+    this.fullDrawData = [];
+  }
+
+  public revertCanvas() {
+    const imgData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
+    const newImgData = this.context.createImageData(this.canvas.width, this.canvas.height);
+
+    this.context.save();
+    this.context.putImageData(this.imageDataHRevert(imgData, newImgData), 0, 0);
+    this.context.restore();
+  }
+
+  private imageDataHRevert(sourceData: ImageData, newData: ImageData) {
+    for (let i = 0, h = sourceData.height; i < h; i++) {
+      for (let j = 0, w = sourceData.width; j < w; j++) {
+        newData.data[i * w * 4 + j * 4 + 0] = sourceData.data[i * w * 4 + (w - j) * 4 + 0];
+        newData.data[i * w * 4 + j * 4 + 1] = sourceData.data[i * w * 4 + (w - j) * 4 + 1];
+        newData.data[i * w * 4 + j * 4 + 2] = sourceData.data[i * w * 4 + (w - j) * 4 + 2];
+        newData.data[i * w * 4 + j * 4 + 3] = sourceData.data[i * w * 4 + (w - j) * 4 + 3];
+      }
+    }
+
+    return newData;
   }
 }
 

@@ -1,12 +1,12 @@
 import React, { Component, CSSProperties, ChangeEvent, ReactNode } from "react";
 import ClassNames from "classnames";
 
-import { Sketchpad } from "./Sketchpad";
+import { Sketchpad, DrawDataGroup } from "./Sketchpad";
 
 import "./style";
 
 const colorList = ["#FFFFFF", "#333333", "#FF5555", "#50C081", "#3CBEEF", "#FFE04E"];
-const dotSizeList = [1, 4, 6];
+const dotSizeList = [6, 10, 14];
 
 type OperatorName = "pencil" | "text" | "arrow" | "reverser";
 
@@ -20,6 +20,7 @@ export interface GraffitiProps {
   TextIcon?: ReactNode;
   UndoIcon?: ReactNode;
   RedoIcon?: ReactNode;
+  DeleteIcon?: ReactNode;
   onConfirm?: (data: string) => void;
   hideConfirmBtn?: boolean;
   confirmText?: string;
@@ -34,12 +35,16 @@ interface GraffitiState {
   arrowColor: string;
   arrowSize: number;
   textColor: string;
+  undoDisabled: boolean;
+  redoDisabled: boolean;
 }
 
 class Graffiti extends Component<GraffitiProps, GraffitiState> {
   private graffito: Sketchpad | null;
   private inputRef: HTMLTextAreaElement | null;
-  private canvas: HTMLCanvasElement;
+  private canvas: HTMLCanvasElement | null;
+  private textMode: "create" | "edit";
+  private currentSelectedTextBoxIndex: number;
 
   constructor(props: GraffitiProps) {
     super(props);
@@ -56,11 +61,19 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
       arrowColor: colorList[0],
       arrowSize: dotSizeList[0],
       textColor: colorList[0],
+      undoDisabled: true,
+      redoDisabled: true,
     };
+
+    this.textMode = "create";
+    this.currentSelectedTextBoxIndex = 0;
+
+    this.canvas = null;
   }
 
   componentDidMount() {
     const { backgroundImageURL } = this.props;
+    const { arrowColor, arrowSize, curveColor, curveSize } = this.state;
 
     const canvas = document.getElementById("graffiti") as HTMLCanvasElement;
 
@@ -68,15 +81,30 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
       this.canvas = canvas;
       this.graffito = new Sketchpad(canvas, {
         backgroundImageURL,
-        // onSelectText: this.handleSelectText,
+        onSelectText: this.handleSelectText,
+        onDrawEnd: this.handleDrawEnd,
+        arrowSize,
+        arrowColor,
+        curveColor,
+        curveSize,
       });
     }
   }
 
-  handleSelectText = (text: string) => {
-    // console.log(text);
-    this.setState({ inputValue: text, inputVisible: true });
+  componentWillUnmount() {
+    this.graffito?.offEvent();
+  }
+
+  handleSelectText = (text: string, index: number) => {
+    // console.log(text.replace("\n", ""));
+    this.textMode = "edit";
+    this.currentSelectedTextBoxIndex = index;
     this.inputRef?.focus();
+    this.setState({ inputValue: text.replace("\n", ""), inputVisible: true });
+  };
+
+  handleDrawEnd = (_: DrawDataGroup[], canUndo: boolean, canRedo: boolean) => {
+    this.setState({ undoDisabled: !canUndo, redoDisabled: !canRedo });
   };
 
   handleOpenTextInput = () => {
@@ -117,12 +145,17 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
       this.graffito?.setMode("curve");
     }
     if (name === "text") {
+      this.textMode = "create";
       this.inputRef?.focus();
 
       this.setState({ inputVisible: true });
     }
     if (name === "arrow") {
       this.graffito?.setMode("arrow");
+    }
+    if (name === "reverser") {
+      this.graffito?.setMode(null);
+      this.graffito?.revertCanvas();
     }
     this.setState({
       currentOperator: name,
@@ -132,9 +165,30 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
     });
   };
 
-  handleRedo = () => {};
+  handleRedo = () => {
+    const _canRedo = this.graffito?.getCanRedo() || false;
 
-  handleUndo = () => {};
+    if (_canRedo) {
+      this.graffito?.redo();
+    }
+
+    const canRedo = this.graffito?.getCanRedo() || false;
+    const canUndo = this.graffito?.getCanUndo() || false;
+    this.setState({ undoDisabled: !canUndo, redoDisabled: !canRedo });
+  };
+
+  handleUndo = () => {
+    const _canUndo = this.graffito?.getCanUndo() || false;
+
+    if (_canUndo) {
+      this.graffito?.undo();
+    }
+
+    const canUndo = this.graffito?.getCanUndo() || false;
+    const canRedo = this.graffito?.getCanRedo() || false;
+
+    this.setState({ undoDisabled: !canUndo, redoDisabled: !canRedo });
+  };
 
   handleInputChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     this.setState({ inputValue: e.target.value.trim() });
@@ -148,13 +202,30 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
     const { inputValue, textColor } = this.state;
 
     // console.log(this.insertLineBreak(inputValue));
-
-    this.graffito?.addText(this.insertLineBreak(inputValue), textColor);
+    if (this.textMode === "create") {
+      this.graffito?.addText(this.insertLineBreak(inputValue), textColor);
+    }
+    if (this.textMode === "edit" && this.currentSelectedTextBoxIndex !== 0) {
+      this.graffito?.editText(
+        this.insertLineBreak(inputValue),
+        textColor,
+        this.currentSelectedTextBoxIndex,
+      );
+    }
     this.setState({ inputValue: "", inputVisible: false });
   };
 
   handleConfirm = () => {
     const { onConfirm } = this.props;
+
+    // console.log(this.graffito?.toDataUrl("image/png", 1));
+
+    const img = document.createElement("img");
+    img.src = this.graffito?.toDataUrl("image/png", 1) || "";
+    document.body.appendChild(img);
+
+    this.setState({ currentOperator: undefined });
+    this.graffito?.setMode(null);
 
     if (typeof onConfirm === "function" && this.graffito) {
       onConfirm(this.graffito.toDataUrl("image/png", 1));
@@ -173,9 +244,9 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
     }
 
     context.font = "30px PingFangSC-Semibold, PingFang SC";
-    const canvasWidth = this.canvas.getBoundingClientRect().width || 0;
+    const canvasWidth = this.canvas?.getBoundingClientRect().width || 0;
 
-    const wordList = text.split("");
+    const wordList = text.split("").filter((v) => v !== "\n");
 
     let res = "";
 
@@ -186,7 +257,7 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
       totalWidthOfLine += wordWidth;
       res += w;
 
-      if (totalWidthOfLine > (canvasWidth - 50)) {
+      if (totalWidthOfLine > canvasWidth - 70) {
         res += "\n";
         totalWidthOfLine = 0;
       }
@@ -205,6 +276,7 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
       TextIcon,
       UndoIcon,
       RedoIcon,
+      DeleteIcon,
       hideConfirmBtn,
       confirmText,
     } = this.props;
@@ -217,6 +289,8 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
       textColor,
       arrowSize,
       arrowColor,
+      undoDisabled,
+      redoDisabled,
     } = this.state;
 
     return (
@@ -271,10 +345,16 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
         </div>
 
         <div className="redo-and-undo-group">
-          <span onClick={this.handleUndo} className={ClassNames("undo-icon", { disabled: false })}>
+          <span
+            onClick={this.handleUndo}
+            className={ClassNames("undo-icon", { disabled: undoDisabled })}
+          >
             {UndoIcon || "Undo"}
           </span>
-          <span onClick={this.handleRedo} className={ClassNames("redo-icon", { disabled: true })}>
+          <span
+            onClick={this.handleRedo}
+            className={ClassNames("redo-icon", { disabled: redoDisabled })}
+          >
             {RedoIcon || "Redo"}
           </span>
         </div>
@@ -298,7 +378,7 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
                   className={ClassNames("dot-size-list-item", { selected })}
                   onClick={() => this.setPencilSize(size)}
                   key={i}
-                  style={{ width: size + 5 + i, height: size + 5 + i }}
+                  style={{ width: size - i, height: size - i }}
                 />
               );
             })}
@@ -347,7 +427,6 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
             style={{ color: textColor }}
             wrap="hard"
             rows={5}
-            cols={21}
           />
 
           <ul className="text-color-list">
@@ -362,6 +441,11 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
               );
             })}
           </ul>
+        </div>
+
+        <div id="delete-zone">
+          {DeleteIcon}
+          <span>拖动到此处删除</span>
         </div>
       </div>
     );
