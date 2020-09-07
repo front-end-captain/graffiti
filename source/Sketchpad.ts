@@ -121,7 +121,7 @@ class Sketchpad {
       this.handleMouseEvents();
 
       if ("ontouchstart" in window) {
-        // TODO handle touch event
+        this.handleTouchEvents();
       }
     }
   }
@@ -180,7 +180,7 @@ class Sketchpad {
     image.src = `${dataUrl}?time=${new Date().valueOf()}`;
   }
 
-  private strokeBegin(event: MouseEvent) {
+  private strokeBegin(event: MouseEvent | Touch) {
     // console.log("%cStrokeBegin", "color: red", event);
 
     if (!this.mode) {
@@ -212,7 +212,7 @@ class Sketchpad {
     this.strokeUpdate(event);
   }
 
-  private strokeUpdate(event: MouseEvent) {
+  private strokeUpdate(event: MouseEvent | Touch) {
     // console.log("%cStrokeUpdate", "color: red", event);
 
     if (this.currentDrawData.length === 0) {
@@ -249,7 +249,7 @@ class Sketchpad {
     }
   }
 
-  private strokeEnd(event: MouseEvent) {
+  private strokeEnd(event: MouseEvent | Touch) {
     // console.log("%cStrokeEnd", "color: red", event);
     this.strokeUpdate(event);
 
@@ -288,6 +288,34 @@ class Sketchpad {
     }
   };
 
+  private _handleTouchStart = (event: TouchEvent): void => {
+    // Prevent scrolling.
+    event.preventDefault();
+
+    if (event.targetTouches.length === 1) {
+      const touch = event.changedTouches[0];
+      this.strokeBegin(touch);
+    }
+  };
+
+  private _handleTouchMove = (event: TouchEvent): void => {
+    // Prevent scrolling.
+    event.preventDefault();
+
+    const touch = event.targetTouches[0];
+    this.strokeUpdate(touch);
+  };
+
+  private _handleTouchEnd = (event: TouchEvent): void => {
+    const wasCanvasTouched = event.target === this.canvas;
+    if (wasCanvasTouched) {
+      event.preventDefault();
+
+      const touch = event.changedTouches[0];
+      this.strokeEnd(touch);
+    }
+  };
+
   private handlePointerEvents(): void {
     this.isMouseDown = false;
 
@@ -302,6 +330,12 @@ class Sketchpad {
     this.canvas.addEventListener("mousedown", this.handleMouseDown);
     this.canvas.addEventListener("mousemove", this.handleMouseMove);
     document.addEventListener("mouseup", this.handleMouseUp);
+  }
+
+  private handleTouchEvents(): void {
+    this.canvas.addEventListener("touchstart", this._handleTouchStart);
+    this.canvas.addEventListener("touchmove", this._handleTouchMove);
+    this.canvas.addEventListener("touchend", this._handleTouchEnd);
   }
 
   private handlePanEvents() {
