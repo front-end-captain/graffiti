@@ -101,6 +101,7 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
     this.currentSelectedTextBoxIndex = index;
     this.inputRef?.focus();
     this.setState({ inputValue: text.replace("\n", ""), inputVisible: true });
+    this.inputRef?.focus();
   };
 
   handleDrawEnd = (_: DrawDataGroup[], canUndo: boolean, canRedo: boolean) => {
@@ -421,7 +422,7 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
 
           <textarea
             ref={(node) => (this.inputRef = node)}
-            autoFocus
+            autoFocus={inputVisible}
             onChange={this.handleInputChange}
             value={inputValue}
             style={{ color: textColor }}

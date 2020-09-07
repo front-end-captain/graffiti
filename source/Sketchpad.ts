@@ -55,13 +55,10 @@ class Sketchpad {
 
   private fullDrawData: DrawDataGroup[];
   private currentDrawData: DrawDataGroup[];
-  // private currentDrawDataIndex: number;
 
   private deleteZoneElement: HTMLElement | null;
 
   private textBoxWrapper: HTMLElement | null;
-
-  // private scale: number;
 
   constructor(canvas: HTMLCanvasElement, options: SketchpadInitOptions) {
     const _context = canvas.getContext("2d");
@@ -91,13 +88,10 @@ class Sketchpad {
 
     this.fullDrawData = [];
     this.currentDrawData = [];
-    // this.currentDrawDataIndex = 0;
 
     this.deleteZoneElement = document.getElementById("delete-zone");
 
     this.textBoxWrapper = document.getElementById("text-box-wrapper");
-
-    // this.scale = -1;
 
     this.clear();
 
@@ -213,7 +207,6 @@ class Sketchpad {
     };
 
     this.currentDrawData.push(newDrawDataGroup);
-    // this.currentDrawDataIndex = this.currentDrawData.length - 1;
     this.fullDrawData = this.currentDrawData;
 
     this.strokeUpdate(event);
@@ -317,6 +310,7 @@ class Sketchpad {
     }
 
     const hammer = new HammerJs(this.CANVAS_CONTAINER);
+    // hammer.set({ enable: true });
 
     const _this = this;
 
@@ -328,7 +322,7 @@ class Sketchpad {
         if (typeof _this.options.onSelectText === "function") {
           _this.options.onSelectText(e.target.innerText, Number(e.target.dataset["order"]));
         }
-        if (!e.target.className.includes("activity")) {
+        if (!e.target.classList.contains("activity")) {
           e.target.classList.add("activity");
         }
       } else {
@@ -351,7 +345,7 @@ class Sketchpad {
     let initX = 0;
     let initY = 0;
 
-    const disY = window.innerHeight - 70;
+    // const disY = window.innerHeight - 70;
     // const disX = (window.innerWidth - 160) / 2;
 
     hammer.on("panstart", (e) => {
@@ -385,10 +379,10 @@ class Sketchpad {
 
         // console.log(initY + e.deltaY, disY);
 
-        if (initY + e.deltaY + 35 > disY) {
+        if (initY + e.deltaY < 45) {
           _this.deleteZoneElement?.classList.add("danger");
         }
-        if (initY + e.deltaY < disY) {
+        if (initY + e.deltaY > 45) {
           _this.deleteZoneElement?.classList.remove("danger");
         }
       }
@@ -419,7 +413,7 @@ class Sketchpad {
           return d;
         });
 
-        if (e.target.offsetTop + 35 > disY) {
+        if (e.target.offsetTop < 45) {
           // console.log("would delete", e.target);
 
           _this.currentDrawData = _this.currentDrawData.filter(
@@ -434,13 +428,19 @@ class Sketchpad {
         const outOfRight = outOfLeft + _this.canvas.width;
         const outOfTop = (window.innerHeight - _this.canvas.height) / 2;
         const outOfBottom = outOfTop + _this.canvas.height;
-        if (e.target.offsetLeft < outOfLeft || e.target.offsetLeft > outOfRight) {
+        if (
+          e.target.offsetLeft < outOfLeft ||
+          e.target.offsetLeft + e.target.offsetWidth > outOfRight
+        ) {
           // console.log("out of left or right");
           e.target.style.left = `${initX}px`;
           e.target.style.top = `${initY}px`;
         }
 
-        if (e.target.offsetHeight < outOfTop || e.target.offsetTop > outOfBottom) {
+        if (
+          e.target.offsetTop < outOfTop ||
+          e.target.offsetTop + e.target.offsetHeight > outOfBottom
+        ) {
           // console.log("out of TOP or BOTTOM");
           e.target.style.left = `${initX}px`;
           e.target.style.top = `${initY}px`;
@@ -448,6 +448,13 @@ class Sketchpad {
 
         initX = 0;
         initY = 0;
+      }
+    });
+
+    hammer.on("pancancel", function(e) {
+      if (e.target.nodeName === "SPAN") {
+        e.target.style.left = `${initX}px`;
+        e.target.style.top = `${initY}px`;
       }
     });
   }
@@ -561,9 +568,10 @@ class Sketchpad {
 
     const left = initLeft || (_left < 0 ? 10 : _left);
     const top =
-      initTop || this.canvas.height === window.innerHeight
+      initTop ||
+      (this.canvas.height === window.innerHeight
         ? this.canvas.height / 2 - 32 / 2
-        : window.innerHeight / 2 - 32 / 2;
+        : window.innerHeight / 2 - 32 / 2);
     const height = 32;
     const width = textWidth > this.canvas.width ? this.canvas.width - 25 : textWidth;
 
@@ -576,11 +584,20 @@ class Sketchpad {
     textBoxElement.style.height = "auto";
     textBoxElement.classList.add("text-box-item");
     textBoxElement.classList.add("activity");
-    const order = textBoxElement.dataset["order"];
+
+    const { order } = textBoxElement.dataset;
     textBoxElement.setAttribute(
       "data-order",
       order || (this.getDrawedTextBoxLength() + 1).toString(),
     );
+
+    // const deleteIcon = document.createElement("i");
+    // deleteIcon.innerText = "x";
+    // deleteIcon.className = "delete-icon";
+    // // console.log(textBoxElement.childNodes);
+    // if (textBoxElement.childNodes.length === 1) {
+    //   textBoxElement.appendChild(deleteIcon);
+    // }
 
     return { width, height, left, top };
   }
@@ -682,7 +699,6 @@ class Sketchpad {
     this.clear();
 
     this._fromData(this.context, this.currentDrawData);
-    // this.currentDrawDataIndex = this.currentDrawData.length - 1;
   }
 
   public redo() {
@@ -709,7 +725,6 @@ class Sketchpad {
 
   public addText(text: string, color: string) {
     this.currentDrawData.push(this.drawText(text, color));
-    // this.currentDrawDataIndex = this.currentDrawData.length - 1;
     this.fullDrawData = this.currentDrawData;
   }
 
@@ -728,7 +743,6 @@ class Sketchpad {
     });
 
     this.fullDrawData = this.currentDrawData;
-    // this.currentDrawDataIndex = this.currentDrawData.length - 1;
   }
 
   public clean() {

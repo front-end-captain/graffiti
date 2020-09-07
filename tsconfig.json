@@ -9,6 +9,8 @@
     "lib": ["DOM", "ES2015"],
     "jsx": "react",
 
+    "sourceMap": true,
+
     /* Strict Checks */
     "alwaysStrict": true,
     "noImplicitAny": true,
