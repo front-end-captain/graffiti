@@ -220,9 +220,9 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
 
     // console.log(this.graffito?.toDataUrl("image/png", 1));
 
-    const img = document.createElement("img");
-    img.src = this.graffito?.toDataUrl("image/png", 1) || "";
-    document.body.appendChild(img);
+    // const img = document.createElement("img");
+    // img.src = this.graffito?.toDataUrl("image/png", 1) || "";
+    // document.body.appendChild(img);
 
     this.setState({ currentOperator: undefined });
     this.graffito?.setMode(null);

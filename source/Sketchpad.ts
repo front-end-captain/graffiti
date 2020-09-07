@@ -164,6 +164,8 @@ class Sketchpad {
 
       this.canvas.width = w;
       this.canvas.height = h;
+      this.canvas.style.height = "100%";
+      this.canvas.style.width = "100%";
 
       this.context.drawImage(image, 0, 0, w, h);
 
@@ -349,7 +351,7 @@ class Sketchpad {
     let initX = 0;
     let initY = 0;
 
-    const disY = window.innerHeight - 190;
+    const disY = window.innerHeight - 70;
     // const disX = (window.innerWidth - 160) / 2;
 
     hammer.on("panstart", (e) => {
@@ -381,12 +383,12 @@ class Sketchpad {
         e.target.style.left = `${initX + e.deltaX}px`;
         e.target.style.top = `${initY + e.deltaY}px`;
 
-        // console.log(initY + e.deltaY, dis);
+        // console.log(initY + e.deltaY, disY);
 
-        if (initY + e.deltaY + 10 > disY) {
+        if (initY + e.deltaY + 35 > disY) {
           _this.deleteZoneElement?.classList.add("danger");
         }
-        if (initY + e.deltaY - 50 < disY) {
+        if (initY + e.deltaY < disY) {
           _this.deleteZoneElement?.classList.remove("danger");
         }
       }
@@ -396,10 +398,7 @@ class Sketchpad {
       if (e.target.nodeName === "SPAN") {
         // console.log("pan end", e.deltaX, e.deltaY);
         // console.log("last pos(pan end)", e.target.offsetLeft, e.target.offsetTop);
-        // console.log("init x y(pan move)", initX, initY);
-
-        initX = 0;
-        initY = 0;
+        // console.log("init x y(pan end)", initX, initY);
 
         e.target.style.left = `${e.target.offsetLeft}px`;
         e.target.style.top = `${e.target.offsetTop}px`;
@@ -420,7 +419,9 @@ class Sketchpad {
           return d;
         });
 
-        if (e.target.offsetTop + 10 > disY) {
+        if (e.target.offsetTop + 35 > disY) {
+          // console.log("would delete", e.target);
+
           _this.currentDrawData = _this.currentDrawData.filter(
             (d) => d.text !== e.target.innerText,
           );
@@ -428,6 +429,25 @@ class Sketchpad {
 
           _this.textBoxWrapper?.removeChild(e.target);
         }
+
+        const outOfLeft = (window.innerWidth - _this.canvas.width) / 2;
+        const outOfRight = outOfLeft + _this.canvas.width;
+        const outOfTop = (window.innerHeight - _this.canvas.height) / 2;
+        const outOfBottom = outOfTop + _this.canvas.height;
+        if (e.target.offsetLeft < outOfLeft || e.target.offsetLeft > outOfRight) {
+          // console.log("out of left or right");
+          e.target.style.left = `${initX}px`;
+          e.target.style.top = `${initY}px`;
+        }
+
+        if (e.target.offsetHeight < outOfTop || e.target.offsetTop > outOfBottom) {
+          // console.log("out of TOP or BOTTOM");
+          e.target.style.left = `${initX}px`;
+          e.target.style.top = `${initY}px`;
+        }
+
+        initX = 0;
+        initY = 0;
       }
     });
   }
@@ -534,9 +554,16 @@ class Sketchpad {
 
     // console.log("initLeft, initTop", initLeft, initTop);
 
-    const _left = this.canvas.width / 2 - (textWidth + 20) / 2;
+    const _left =
+      this.canvas.width === window.innerWidth
+        ? this.canvas.width / 2 - (textWidth + 20) / 2
+        : window.innerWidth / 2 - (textWidth + 20) / 2;
+
     const left = initLeft || (_left < 0 ? 10 : _left);
-    const top = initTop || this.canvas.height / 2 - 32 / 2;
+    const top =
+      initTop || this.canvas.height === window.innerHeight
+        ? this.canvas.height / 2 - 32 / 2
+        : window.innerHeight / 2 - 32 / 2;
     const height = 32;
     const width = textWidth > this.canvas.width ? this.canvas.width - 25 : textWidth;
 

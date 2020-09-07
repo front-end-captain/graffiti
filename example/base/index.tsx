@@ -1,4 +1,4 @@
-import React, { FunctionComponent } from "react";
+import React, { FunctionComponent, useState } from "react";
 import ReactDOM from "react-dom";
 // import VConsole from "vconsole";
 
@@ -6,15 +6,27 @@ import { Graffiti } from "../../source";
 
 import "./index.less";
 
-// const bg = "https://media.prod.mdn.mozit.cloud/attachments/2013/06/22/5397/7a3ec0cae64a95ad454ac3bc2c71c004/rhino.jpg";
-// const bg = "https://media.prod.mdn.mozit.cloud/attachments/2012/07/09/205/c86a62360a8c3b1347e651244d6b3137/Canvas_art_gallery.jpg";
-const bg = "https://s1.firstleap.cn/s/visitor/55853793621113051598262939310.png";
+const bgList = [
+  "https://media.prod.mdn.mozit.cloud/attachments/2013/06/22/5397/7a3ec0cae64a95ad454ac3bc2c71c004/rhino.jpg",
+  "https://media.prod.mdn.mozit.cloud/attachments/2012/07/09/205/c86a62360a8c3b1347e651244d6b3137/Canvas_art_gallery.jpg",
+  "https://s1.firstleap.cn/s/visitor/55853793621113051598262939310.png",
+];
 
 // new VConsole();
 
 const Base: FunctionComponent = () => {
+  const [index, setIndex] = useState(0);
+  const [bg, setBg] = useState(bgList[index]);
+
+  const handleConfirm = (img: string) => {
+    console.log(img);
+    setIndex(index + 1);
+    setBg(bgList[index + 1]);
+  };
+
   return (
     <Graffiti
+      key={index}
       className="custom-graffiti"
       backgroundImageURL={bg}
       PencilIcon={<i className="iconfont iconpencil" />}
@@ -24,6 +36,7 @@ const Base: FunctionComponent = () => {
       TextIcon={<i className="iconfont icontext" />}
       ReverseIcon={<i className="iconfont iconfanzhuan-zuo" />}
       DeleteIcon={<i className="iconfont icondelete" />}
+      onConfirm={handleConfirm}
     />
   );
 };
