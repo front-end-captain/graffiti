@@ -5,9 +5,9 @@ class Arrow {
   public color: string;
   public size: number;
   public readonly points: Point[];
-  private readonly context: CanvasRenderingContext2D;
+  private context: CanvasRenderingContext2D;
 
-  constructor(context: CanvasRenderingContext2D, options: { color?: string, size?: number} = {}) {
+  constructor(context: CanvasRenderingContext2D, options: { color?: string; size?: number } = {}) {
     this.name = "arrow";
 
     this.color = options.color || "#fff";
@@ -34,16 +34,15 @@ class Arrow {
     return this.points[this.points.length - 1];
   }
 
+  public setContext(context: CanvasRenderingContext2D) {
+    this.context = context;
+  }
+
   public addPoint(point: Point) {
     this.points.push(point);
   }
 
-  public drawArrow(
-    beginPoint: Point,
-    endPoint: Point,
-    color?: string,
-    size?: number,
-  ) {
+  public drawArrow(beginPoint: Point, endPoint: Point, color?: string, size?: number) {
     // TODO change `theta` and `hypotenuse` based on `size`
     const theta = 30;
     const hypotenuse = 10;

@@ -10,13 +10,13 @@
     "es"
   ],
   "scripts": {
-    "eslint": "eslint --config .eslintrc --ext .ts,.tsx source/",
-    "eslint:fix": "eslint --fix --config .eslintrc --ext .ts,.tsx source/",
-    "format:check:style": "prettier --check 'source/**/*.less'",
-    "format:check:ts": "prettier --check 'source/**/*.{ts,tsx}'",
-    "format:style": "prettier --write 'source/**/*.less'",
-    "format:ts": "prettier --write 'source/**/*.{ts,tsx}'",
-    "stylelint": "stylelint source/**/*.{less}",
+    "eslint": "eslint --config .eslintrc --ext .ts,.tsx src/",
+    "eslint:fix": "eslint --fix --config .eslintrc --ext .ts,.tsx src/",
+    "format:check:style": "prettier --check 'src/**/*.less'",
+    "format:check:ts": "prettier --check 'src/**/*.{ts,tsx}'",
+    "format:style": "prettier --write 'src/**/*.less'",
+    "format:ts": "prettier --write 'src/**/*.{ts,tsx}'",
+    "stylelint": "stylelint src/**/*.{less}",
     "prepublishOnly": "npm run build",
     "build": "npm run build:es && npm run build:cjs && npm run build:css",
     "build:es": "rimraf es && tsc -p tsconfig.json --module ESNext --outDir es",
@@ -96,11 +96,11 @@
     }
   },
   "lint-staged": {
-    "source/**/*.ts": [
+    "src/**/*.ts": [
       "npm run eslint",
       "npm run format:check:ts"
     ],
-    "source/**/*.less": [
+    "src/**/*.less": [
       "npm run stylelint",
       "npm run format:check:style"
     ]

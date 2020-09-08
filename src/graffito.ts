@@ -23,6 +23,8 @@ type BackgroundImage = {
   image?: HTMLImageElement;
   url: string;
   angle: number;
+  x: number;
+  y: number;
 };
 
 class Graffito {
@@ -30,6 +32,7 @@ class Graffito {
   private readonly context: CanvasRenderingContext2D;
 
   private cacheCanvas: HTMLCanvasElement;
+  private cacheContext: CanvasRenderingContext2D;
 
   private mode: Mode | undefined;
   private backgroundImage: BackgroundImage;
@@ -47,13 +50,23 @@ class Graffito {
   private fullDrawData: DrawDataGroup[];
   private currentDrawData: DrawDataGroup[];
 
-  constructor(canvas: HTMLCanvasElement, options: GraffitoInitOptions) {
+  constructor(
+    canvas: HTMLCanvasElement,
+    cacheCanvas: HTMLCanvasElement,
+    options: GraffitoInitOptions,
+  ) {
     const _context = canvas.getContext("2d");
+    const _cacheContext = cacheCanvas.getContext("2d");
     if (!_context) {
       throw new Error("get canvas context error");
     }
 
-    this.cacheCanvas = document.createElement("canvas");
+    if (!_cacheContext) {
+      throw new Error("get cache canvas context error");
+    }
+
+    this.cacheCanvas = cacheCanvas;
+    this.cacheContext = _cacheContext;
 
     this.options = options;
 
@@ -66,6 +79,8 @@ class Graffito {
     this.backgroundImage = {
       url: options.backgroundImageURL,
       angle: 0,
+      x: 0,
+      y: 0,
     };
 
     this.curveColor = options.curveColor || "#fff";
@@ -88,6 +103,21 @@ class Graffito {
 
     if (this.backgroundImage.image) {
       this.context.drawImage(
+        this.backgroundImage.image,
+        0,
+        0,
+        this.canvas.width,
+        this.canvas.height,
+      );
+    }
+  }
+
+  private clearCache() {
+    this.cacheContext.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.cacheContext.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+    if (this.backgroundImage.image) {
+      this.cacheContext.drawImage(
         this.backgroundImage.image,
         0,
         0,
@@ -228,7 +258,14 @@ class Graffito {
       return;
     }
 
-    const arrow = new Arrow(this.context, { color: this.arrowColor, size: this.arrowSize });
+    this.cacheContext.putImageData(
+      this.context.getImageData(0, 0, this.canvas.width, this.canvas.height),
+      0,
+      0,
+    );
+    this.cacheCanvas.style.zIndex = "3";
+
+    const arrow = new Arrow(this.cacheContext, { color: this.arrowColor, size: this.arrowSize });
     arrow.addPoint(this.createPoint(event.clientX, event.clientY));
 
     this.currentDrawData.push(arrow);
@@ -247,10 +284,21 @@ class Graffito {
       (lastArrow as Arrow).drawArrow(firstPoint, point);
       (lastArrow as Curve).addPoint(point);
 
-      this.clear();
+      this.clearCache();
 
-      this._fromData(this.currentDrawData);
+      this.fromData(this.currentDrawData, this.cacheContext);
     });
+
+    if ((event as any).type === "pointerup") {
+      this.cacheCanvas.style.zIndex = "1";
+      this.context.putImageData(
+        this.cacheContext.getImageData(0, 0, this.cacheCanvas.width, this.cacheCanvas.height),
+        0,
+        0,
+      );
+
+      this.clearCache();
+    }
   }
 
   private strokeArrowEnd(event: MouseEvent | Touch) {
@@ -365,13 +413,16 @@ class Graffito {
     this.canvas.addEventListener("touchend", this.handleTouchEnd);
   }
 
-  private _fromData(drawDataGroup: DrawDataGroup[]) {
+  private fromData(drawDataGroup: DrawDataGroup[], context?: CanvasRenderingContext2D) {
     if (drawDataGroup.length === 0) {
       return;
     }
 
     for (const drawData of drawDataGroup) {
       if (drawData instanceof Curve) {
+        if (context) {
+          drawData.setContext(context);
+        }
         if (drawData.points.length > 1) {
           for (let j = 0; j < drawData.points.length; j += 1) {
             if (j < drawData.points.length - 1) {
@@ -387,6 +438,9 @@ class Graffito {
       }
 
       if (drawData instanceof Arrow) {
+        if (context) {
+          drawData.setContext(context);
+        }
         if (drawData.points.length > 1) {
           drawData.drawArrow(
             drawData.points[0],
@@ -398,6 +452,9 @@ class Graffito {
       }
 
       if (drawData instanceof Text) {
+        // if (context) {
+        //   drawData.setContext(context);
+        // }
         // TODO
       }
     }
@@ -439,7 +496,7 @@ class Graffito {
 
     this.clear();
 
-    this._fromData(this.currentDrawData);
+    this.fromData(this.currentDrawData, this.context);
   }
 
   public redo() {
@@ -452,23 +509,16 @@ class Graffito {
 
       this.clear();
 
-      this._fromData(this.currentDrawData);
+      this.fromData(this.currentDrawData, this.context);
     }
   }
 
   public toDataUrl(type = "image/png", quality?: number): string {
-    // const _canvas = document.createElement("canvas");
-    // _canvas.width = this.canvas.width;
-    // _canvas.height = this.canvas.height;
-    // const context = _canvas.getContext("2d");
-
-    // if (context) {
-    //   context.drawImage(this.canvas, 0, 0, this.canvas.width, this.canvas.height);
-    //   const sortedDrawDataGroup = this.currentDrawData.sort((a, b) => a.type.localeCompare(b.type));
-    //   this._fromData(context, sortedDrawDataGroup, true);
-    // }
-
     return this.canvas.toDataURL(type, quality);
+  }
+
+  public rotateBg() {
+    // TODO
   }
 }
 

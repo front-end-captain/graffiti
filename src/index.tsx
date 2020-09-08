@@ -76,10 +76,11 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
     const { arrowColor, arrowSize, curveColor, curveSize } = this.state;
 
     const canvas = document.getElementById("graffiti") as HTMLCanvasElement;
+    const canvasCache = document.getElementById("graffiti-cache") as HTMLCanvasElement;
 
     if (canvas) {
       this.canvas = canvas;
-      this.graffito = new Graffito(canvas, {
+      this.graffito = new Graffito(canvas, canvasCache, {
         backgroundImageURL,
         onSelectText: this.handleSelectText,
         onDrawEnd: this.handleDrawEnd,
@@ -156,7 +157,7 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
     }
     if (name === "reverser") {
       this.graffito?.setMode(undefined);
-      // this.graffito?.revertCanvas();
+      this.graffito?.rotateBg();
     }
     this.setState({
       currentOperator: name,
@@ -300,7 +301,9 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
           <canvas id="graffiti" className="lower-canvas">
             Your browser not supported canvas!!!
           </canvas>
-          <div id="text-box-wrapper">{/* <span>cccccc</span> */}</div>
+          <canvas id="graffiti-cache" className="cache-canvas">
+            Your browser not supported canvas!!!
+          </canvas>
         </div>
 
         <div className="operator-group">

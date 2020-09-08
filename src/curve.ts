@@ -10,7 +10,7 @@ class Curve {
   public size: number;
   public readonly points: Point[];
   public readonly name: string;
-  private readonly context: CanvasRenderingContext2D;
+  private context: CanvasRenderingContext2D;
 
   constructor(context: CanvasRenderingContext2D, options: CurveOptions = {}) {
     this.context = context;
@@ -35,12 +35,11 @@ class Curve {
     this.points.push(point);
   }
 
-  public drawCurve(
-    beginPoint: Point,
-    endPoint: Point,
-    color?: string,
-    size?: number,
-  ) {
+  public setContext(context: CanvasRenderingContext2D) {
+    this.context = context;
+  }
+
+  public drawCurve(beginPoint: Point, endPoint: Point, color?: string, size?: number) {
     this.context.save();
 
     this.context.beginPath();
@@ -59,7 +58,6 @@ class Curve {
 
     this.context.restore();
   }
-
 }
 
 export { Curve };

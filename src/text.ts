@@ -4,16 +4,15 @@ interface TextOptions {
 }
 
 class Text {
-  // TODO
-  // public x: number;
-  // public y: number;
+  public x: number;
+  public y: number;
 
-  // public width: number;
-  // public height: number;
-  // public lintAmount: number;
+  public width: number;
+  public height: number;
+  public lintAmount: number;
 
-  // public angle: number;
-  // public selected: boolean;
+  public angle: number;
+  public selected: boolean;
 
   public content: string;
   public color: string;
@@ -28,4 +27,4 @@ class Text {
   }
 }
 
-export { Text }
+export { Text };
