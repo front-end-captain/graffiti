@@ -460,6 +460,14 @@ class Graffito {
     }
   }
 
+  public addText(text: string, color: string) {
+    const t = new Text(this.context, this.canvas, { text, color });
+    t.drawText();
+    this.currentDrawData.push(t);
+
+    console.log(this.currentDrawData);
+  }
+
   public getCanUndo() {
     return this.currentDrawData.length > 0;
   }

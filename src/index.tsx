@@ -201,11 +201,11 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
   };
 
   handleConfirmInput = () => {
-    // const { inputValue, textColor } = this.state;
+    const { inputValue, textColor } = this.state;
 
     // console.log(this.insertLineBreak(inputValue));
     if (this.textMode === "create") {
-      // this.graffito?.addText(this.insertLineBreak(inputValue), textColor);
+      this.graffito?.addText(this.insertLineBreak(inputValue), textColor);
     }
     if (this.textMode === "edit" && this.currentSelectedTextBoxIndex !== 0) {
       // this.graffito?.editText(
@@ -214,7 +214,7 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
       //   this.currentSelectedTextBoxIndex,
       // );
     }
-    // this.setState({ inputValue: "", inputVisible: false });
+    this.setState({ inputValue: "", inputVisible: false });
   };
 
   handleConfirm = () => {
