@@ -2,7 +2,7 @@ import React, { FunctionComponent, useState } from "react";
 import ReactDOM from "react-dom";
 // import VConsole from "vconsole";
 
-import { Graffiti } from "../../source";
+import { Graffiti } from "../../src";
 
 import "./index.less";
 
