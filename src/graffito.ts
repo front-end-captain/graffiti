@@ -1,3 +1,5 @@
+import HammerJs from "hammerjs";
+
 import { Arrow } from "./arrow";
 import { Curve } from "./curve";
 import { Text } from "./text";
@@ -14,7 +16,7 @@ export interface GraffitoInitOptions {
   curveSize?: number;
   arrowColor?: string;
   arrowSize?: number;
-  onSelectText?: (text: string, index: number) => void;
+  onSelectText?: (text: string) => void;
   onDrawEnd?: (drawData: DrawDataGroup[], canUndo: boolean, canRedo: boolean) => void;
   mode?: Mode;
 }
@@ -49,6 +51,13 @@ class Graffito {
 
   private fullDrawData: DrawDataGroup[];
   private currentDrawData: DrawDataGroup[];
+
+  private Hammer: HammerManager;
+  private HammerCache: HammerManager;
+
+  private currentTapedText: Text | null;
+
+  private currentPanedText: Text | null;
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -92,6 +101,12 @@ class Graffito {
     this.fullDrawData = [];
     this.currentDrawData = [];
 
+    this.Hammer = new HammerJs(this.canvas);
+    this.HammerCache = new HammerJs(this.cacheCanvas);
+
+    this.currentTapedText = null;
+    this.currentPanedText = null;
+
     this.bindEvent();
 
     this.fromDataURL(this.backgroundImage);
@@ -131,15 +146,8 @@ class Graffito {
     this.canvas.style.touchAction = "none";
     this.canvas.style.msTouchAction = "none";
 
-    if (window.PointerEvent) {
-      this.handlePointerEvents();
-    } else {
-      this.handleMouseEvents();
-
-      if ("ontouchstart" in window) {
-        this.handleTouchEvents();
-      }
-    }
+    this.handlePanEvent();
+    this.handleTapEvent();
   }
 
   public offEvent(): void {
@@ -147,13 +155,11 @@ class Graffito {
     this.canvas.style.touchAction = "auto";
     this.canvas.style.msTouchAction = "auto";
 
-    this.canvas.removeEventListener("pointerdown", this.handleMouseDown);
-    this.canvas.removeEventListener("pointermove", this.handleMouseMove);
-    document.removeEventListener("pointerup", this.handleMouseUp);
+    this.Hammer.off("panstart", this.handlePanStart);
+    this.Hammer.off("panmove", this.handlePanMove);
+    this.Hammer.off("panend", this.handlePanEnd);
 
-    this.canvas.removeEventListener("mousedown", this.handleMouseDown);
-    this.canvas.removeEventListener("mousemove", this.handleMouseMove);
-    document.removeEventListener("mouseup", this.handleMouseUp);
+    this.Hammer.off("tap", this.handleTapCanvas);
   }
 
   private fromDataURL(
@@ -209,7 +215,7 @@ class Graffito {
     return new Point(x - rect.left, y - rect.top);
   }
 
-  private strokeCurveBegin(event: MouseEvent | Touch) {
+  private strokeCurveBegin(event: HammerInput) {
     // console.log("%cStrokeBegin", "color: red", event);
 
     if (!this.mode) {
@@ -217,7 +223,7 @@ class Graffito {
     }
 
     const curve = new Curve(this.context, { color: this.curveColor, size: this.curveSize });
-    curve.addPoint(this.createPoint(event.clientX, event.clientY));
+    curve.addPoint(this.createPoint(event.center.x, event.center.y));
 
     this.currentDrawData.push(curve);
     this.fullDrawData = this.currentDrawData;
@@ -227,10 +233,10 @@ class Graffito {
     this.strokeCurveUpdate(event);
   }
 
-  private strokeCurveUpdate(event: MouseEvent | Touch) {
+  private strokeCurveUpdate(event: HammerInput) {
     // console.log("%cStrokeUpdate", "color: red", event);
 
-    const point = this.createPoint(event.clientX, event.clientY);
+    const point = this.createPoint(event.center.x, event.center.y);
 
     const lastCurve = this.currentDrawData[this.currentDrawData.length - 1];
 
@@ -244,7 +250,7 @@ class Graffito {
     (lastCurve as Curve).addPoint(point);
   }
 
-  private strokeCurveEnd(event: MouseEvent | Touch) {
+  private strokeCurveEnd(event: HammerInput) {
     // console.log("%cStrokeEnd", "color: red", event);
     this.strokeCurveUpdate(event);
 
@@ -253,7 +259,7 @@ class Graffito {
     }
   }
 
-  private strokeArrowBegin(event: MouseEvent | Touch) {
+  private strokeArrowBegin(event: HammerInput) {
     if (!this.mode) {
       return;
     }
@@ -266,7 +272,7 @@ class Graffito {
     this.cacheCanvas.style.zIndex = "3";
 
     const arrow = new Arrow(this.cacheContext, { color: this.arrowColor, size: this.arrowSize });
-    arrow.addPoint(this.createPoint(event.clientX, event.clientY));
+    arrow.addPoint(this.createPoint(event.center.x, event.center.y));
 
     this.currentDrawData.push(arrow);
     this.fullDrawData = this.currentDrawData;
@@ -274,8 +280,8 @@ class Graffito {
     this.strokeArrowUpdate(event);
   }
 
-  private strokeArrowUpdate(event: MouseEvent | Touch) {
-    const point = this.createPoint(event.clientX, event.clientY);
+  private strokeArrowUpdate(event: HammerInput) {
+    const point = this.createPoint(event.center.x, event.center.y);
     const lastArrow = this.currentDrawData[this.currentDrawData.length - 1];
     const { points } = lastArrow as Arrow;
     const firstPoint = points[0];
@@ -289,7 +295,7 @@ class Graffito {
       this.fromData(this.currentDrawData, this.cacheContext);
     });
 
-    if ((event as any).type === "pointerup") {
+    if (event.type === "panend") {
       this.cacheCanvas.style.zIndex = "1";
       this.context.putImageData(
         this.cacheContext.getImageData(0, 0, this.cacheCanvas.width, this.cacheCanvas.height),
@@ -301,7 +307,7 @@ class Graffito {
     }
   }
 
-  private strokeArrowEnd(event: MouseEvent | Touch) {
+  private strokeArrowEnd(event: HammerInput) {
     this.strokeArrowUpdate(event);
 
     if (this.options.onDrawEnd) {
@@ -309,23 +315,89 @@ class Graffito {
     }
   }
 
-  private handleMouseDown = (event: MouseEvent): void => {
-    if (this.mode === null) {
+  private strokeTextStart(event: HammerInput) {
+    if (this.currentPanedText) {
+      this.currentPanedText.x = event.center.x;
+      this.currentPanedText.y = event.center.y;
+      this.clear();
+    }
+  }
+
+  private strokeTextUpdate(event: HammerInput) {
+    if (this.currentPanedText) {
+      // console.log(this.currentPanedText.x + event.deltaX);
+      const startX = this.currentPanedText.x;
+      const startY = this.currentPanedText.y;
+      const x = startX + event.deltaX;
+      const y = startY + event.deltaY;
+
+      // this.currentPanedText.x = x;
+      // this.currentPanedText.y = y;
+
+      window.requestAnimationFrame(() => {
+        // this.currentPanedText.x = this.currentPanedText.x + event.deltaX;
+        // this.currentPanedText.y = this.currentPanedText.y + event.deltaY;
+
+        this.clear();
+
+        this.currentPanedText?.drawText(this.currentPanedText.color, x, y);
+        // console.log(this.currentPanedText.x);
+        this.fromData(this.currentDrawData, this.context);
+      });
+
+      // if (event.type === "panend") {
+      // }
+    }
+  }
+
+  private strokeTextEnd(event: HammerInput) {
+    if (this.currentPanedText) {
+      this.strokeTextUpdate(event);
+    }
+  }
+
+  private handlePanStart = (event: HammerInput) => {
+    // console.log("pan start", event, this.mode);
+    if (!this.mode) {
       return;
     }
 
-    if (event.which === 1) {
-      this.isMouseDown = true;
-      if (this.mode === "curve") {
-        this.strokeCurveBegin(event);
+    this.isMouseDown = true;
+
+    if (this.mode === "curve") {
+      this.strokeCurveBegin(event);
+    }
+    if (this.mode === "arrow") {
+      this.strokeArrowBegin(event);
+    }
+    const tapedTextBoxList = this.currentDrawData.filter((d) => {
+      if (d instanceof Text) {
+        const place = d.tapWhere(event.center.x, event.center.y);
+
+        if (place) {
+          return true;
+        }
       }
-      if (this.mode === "arrow") {
-        this.strokeArrowBegin(event);
+
+      return false;
+    });
+
+    if (tapedTextBoxList.length > 0) {
+      this.currentPanedText = tapedTextBoxList[tapedTextBoxList.length - 1] as Text;
+
+      console.log(this.currentPanedText);
+
+      if (this.currentPanedText.lastTapedPlace === "text") {
+        this.strokeTextStart(event);
+      }
+      if (this.currentPanedText.lastTapedPlace === "zoom") {
+        console.log("zoom start");
       }
     }
   };
 
-  private handleMouseMove = (event: MouseEvent): void => {
+  private handlePanMove = (event: HammerInput) => {
+    // console.log("pan move",event.deltaX);
     if (this.isMouseDown) {
       if (this.mode === "curve") {
         this.strokeCurveUpdate(event);
@@ -333,11 +405,41 @@ class Graffito {
       if (this.mode === "arrow") {
         this.strokeArrowUpdate(event);
       }
+      if (this.currentPanedText) {
+        if (this.currentPanedText.lastTapedPlace === "text") {
+          this.strokeTextUpdate(event);
+        }
+        if (this.currentPanedText.lastTapedPlace === "zoom") {
+          console.log("zoom move");
+        }
+      }
     }
   };
 
-  private handleMouseUp = (event: MouseEvent): void => {
-    if (event.which === 1 && this.isMouseDown) {
+  private handlePanEnd = (event: HammerInput) => {
+    // console.log("pan end",event);
+    if (this.isMouseDown) {
+      this.isMouseDown = false;
+      if (this.mode === "curve") {
+        this.strokeCurveEnd(event);
+      }
+      if (this.mode === "arrow") {
+        this.strokeArrowEnd(event);
+      }
+      if (this.currentPanedText) {
+        if (this.currentPanedText.lastTapedPlace === "text") {
+          this.strokeTextEnd(event);
+        }
+        if (this.currentPanedText.lastTapedPlace === "zoom") {
+          console.log("zoom end");
+        }
+      }
+    }
+  };
+
+  private handlePanCancel = (event: HammerInput) => {
+    // console.log("pan cancel",event);
+    if (this.isMouseDown) {
       this.isMouseDown = false;
       if (this.mode === "curve") {
         this.strokeCurveEnd(event);
@@ -348,73 +450,79 @@ class Graffito {
     }
   };
 
-  private handleTouchStart = (event: TouchEvent): void => {
-    // Prevent scrolling.
-    event.preventDefault();
-
-    if (event.targetTouches.length === 1) {
-      const touch = event.changedTouches[0];
-      if (this.mode === "curve") {
-        this.strokeCurveBegin(touch);
-      }
-      if (this.mode === "arrow") {
-        this.strokeArrowBegin(touch);
-      }
-    }
-  };
-
-  private handleTouchMove = (event: TouchEvent): void => {
-    // Prevent scrolling.
-    event.preventDefault();
-
-    const touch = event.targetTouches[0];
-    if (this.mode === "curve") {
-      this.strokeCurveUpdate(touch);
-    }
-    if (this.mode === "arrow") {
-      this.strokeArrowUpdate(touch);
-    }
-  };
-
-  private handleTouchEnd = (event: TouchEvent): void => {
-    const wasCanvasTouched = event.target === this.canvas;
-    if (wasCanvasTouched) {
-      event.preventDefault();
-
-      const touch = event.changedTouches[0];
-      if (this.mode === "curve") {
-        this.strokeCurveEnd(touch);
-      }
-      if (this.mode === "arrow") {
-        this.strokeArrowEnd(touch);
-      }
-    }
-  };
-
-  private handlePointerEvents(): void {
+  private handlePanEvent() {
     this.isMouseDown = false;
 
-    this.canvas.addEventListener("pointerdown", this.handleMouseDown);
-    this.canvas.addEventListener("pointermove", this.handleMouseMove);
-    document.addEventListener("pointerup", this.handleMouseUp);
+    this.Hammer.on("panstart", this.handlePanStart);
+    this.Hammer.on("panmove", this.handlePanMove);
+    this.Hammer.on("panend", this.handlePanEnd);
+    this.Hammer.on("pancancel", this.handlePanCancel);
+
+    this.HammerCache.on("panstart", this.handlePanStart);
+    this.HammerCache.on("panmove", this.handlePanMove);
+    this.HammerCache.on("panend", this.handlePanEnd);
+    this.HammerCache.on("pancancel", this.handlePanCancel);
   }
 
-  private handleMouseEvents(): void {
-    this.isMouseDown = false;
+  private handleTapCanvas = (event: HammerInput) => {
+    // console.log("tap", event);
+    const tapedTextBoxList = this.currentDrawData.filter((d) => {
+      if (d instanceof Text) {
+        const place = d.tapWhere(event.center.x, event.center.y);
 
-    this.canvas.addEventListener("mousedown", this.handleMouseDown);
-    this.canvas.addEventListener("mousemove", this.handleMouseMove);
-    document.addEventListener("mouseup", this.handleMouseUp);
-  }
+        if (place) {
+          return true;
+        }
+      }
 
-  private handleTouchEvents(): void {
-    this.canvas.addEventListener("touchstart", this.handleTouchStart);
-    this.canvas.addEventListener("touchmove", this.handleTouchMove);
-    this.canvas.addEventListener("touchend", this.handleTouchEnd);
+      return false;
+    });
+
+    // console.log(tapedTextBoxList);
+
+    if (tapedTextBoxList.length > 0) {
+      this.currentTapedText = tapedTextBoxList[tapedTextBoxList.length - 1] as Text;
+      if (this.currentTapedText.lastTapedPlace === "text") {
+        if (typeof this.options.onSelectText === "function") {
+          this.currentTapedText.setSelected(true);
+          this.currentTapedText.drawText();
+          this.options.onSelectText(
+            (tapedTextBoxList[tapedTextBoxList.length - 1] as Text).content,
+          );
+        }
+      }
+      if (this.currentTapedText.lastTapedPlace === "delete") {
+        this.currentDrawData = this.currentDrawData.filter((d) => {
+          if (d instanceof Text) {
+            if (d.content === this.currentTapedText?.content) {
+              return false;
+            }
+          }
+          return true;
+        });
+
+        this.fullDrawData = this.currentDrawData;
+
+        // console.log(this.currentDrawData);
+
+        this.clear();
+
+        this.fromData(this.currentDrawData, this.context);
+
+        this.currentTapedText = null;
+      }
+    } else {
+      this.unActivityEveryText();
+    }
+  };
+
+  private handleTapEvent() {
+    this.Hammer.on("tap", this.handleTapCanvas);
   }
 
   private fromData(drawDataGroup: DrawDataGroup[], context?: CanvasRenderingContext2D) {
     if (drawDataGroup.length === 0) {
+      this.clear();
       return;
     }
 
@@ -452,20 +560,42 @@ class Graffito {
       }
 
       if (drawData instanceof Text) {
-        // if (context) {
-        //   drawData.setContext(context);
-        // }
-        // TODO
+        if (context) {
+          drawData.setContext(context);
+        }
+        drawData.drawText();
       }
     }
   }
 
   public addText(text: string, color: string) {
-    const t = new Text(this.context, this.canvas, { text, color });
-    t.drawText();
-    this.currentDrawData.push(t);
+    const newText = new Text(this.context, this.canvas, { text, color });
+    newText.setSelected(true);
+    newText.drawText();
+    this.currentDrawData.push(newText);
 
-    console.log(this.currentDrawData);
+    this.fullDrawData = this.currentDrawData;
+
+    if (this.options.onDrawEnd) {
+      this.options.onDrawEnd(this.currentDrawData, this.getCanUndo(), this.getCanRedo());
+    }
+
+    // console.log(this.currentDrawData);
+  }
+
+  public editText(text: string, color: string) {
+    if (this.currentTapedText) {
+      this.clear();
+      this.currentTapedText.setColor(color);
+      this.currentTapedText.setContent(text);
+      this.currentTapedText.setSelected(true);
+      this.currentTapedText.drawText();
+      this.fromData(this.currentDrawData, this.context);
+
+      if (this.options.onDrawEnd) {
+        this.options.onDrawEnd(this.currentDrawData, this.getCanUndo(), this.getCanRedo());
+      }
+    }
   }
 
   public getCanUndo() {
@@ -523,6 +653,19 @@ class Graffito {
 
   public toDataUrl(type = "image/png", quality?: number): string {
     return this.canvas.toDataURL(type, quality);
+  }
+
+  public unActivityEveryText() {
+    this.clear();
+
+    this.currentDrawData.forEach((d) => {
+      if (d instanceof Text) {
+        d.setSelected(false);
+        d.drawText();
+      }
+    });
+
+    this.fromData(this.currentDrawData, this.context);
   }
 
   public rotateBg() {

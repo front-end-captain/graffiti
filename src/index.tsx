@@ -96,10 +96,10 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
     this.graffito?.offEvent();
   }
 
-  handleSelectText = (text: string, index: number) => {
+  handleSelectText = (text: string) => {
     // console.log(text.replace("\n", ""));
     this.textMode = "edit";
-    this.currentSelectedTextBoxIndex = index;
+    // this.currentSelectedTextBoxIndex = index;
     this.inputRef?.focus();
     this.setState({ inputValue: text.replace("\n", ""), inputVisible: true });
     this.inputRef?.focus();
@@ -143,6 +143,8 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
   };
 
   setOperator = (name: OperatorName) => {
+    this.graffito?.unActivityEveryText();
+
     if (name === "pencil") {
       this.graffito?.setMode("curve");
     }
@@ -150,6 +152,7 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
       this.textMode = "create";
       this.inputRef?.focus();
 
+      this.graffito?.setMode("text");
       this.setState({ inputVisible: true });
     }
     if (name === "arrow") {
@@ -207,12 +210,8 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
     if (this.textMode === "create") {
       this.graffito?.addText(this.insertLineBreak(inputValue), textColor);
     }
-    if (this.textMode === "edit" && this.currentSelectedTextBoxIndex !== 0) {
-      // this.graffito?.editText(
-      //   this.insertLineBreak(inputValue),
-      //   textColor,
-      //   this.currentSelectedTextBoxIndex,
-      // );
+    if (this.textMode === "edit") {
+      this.graffito?.editText(this.insertLineBreak(inputValue), textColor);
     }
     this.setState({ inputValue: "", inputVisible: false });
   };
