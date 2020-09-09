@@ -30,6 +30,11 @@ class Text {
 
   public lastTapedPlace: TapedPlace | null;
 
+  public readonly id: number;
+
+  public centerX: number;
+  public centerY: number;
+
   constructor(context: CanvasRenderingContext2D, canvas: HTMLCanvasElement, options: TextOptions) {
     this.context = context;
     this.canvas = canvas;
@@ -53,6 +58,11 @@ class Text {
     this.ZoomImage.src = ZoomIcon;
 
     this.lastTapedPlace = null;
+
+    this.id = Date.now();
+
+    this.centerX = 0;
+    this.centerY = 0;
   }
 
   public setContext(context: CanvasRenderingContext2D) {
@@ -103,7 +113,14 @@ class Text {
     this.width = width;
     this.height = height;
 
+    this.centerY = this.y + this.height / 2;
+    this.centerX = this.x + this.width / 2;
+
     // console.log(this.x, this.y, this.width, this.height);
+
+    this.context.translate(this.centerX, this.centerY);
+    this.context.rotate((this.angle * Math.PI) / 180);
+    this.context.translate(-this.centerX, -this.centerY);
 
     this.context.fillStyle = color || this.color;
     this.context.textAlign = "left";
@@ -118,27 +135,26 @@ class Text {
     if (this.selected) {
       this.context.lineWidth = 1;
       this.context.strokeStyle = "#fff";
-      this.context.strokeRect(this.x - 10, this.y - 10, this.width + 20, this.height + 20);
+      this.context.strokeRect(this.x, this.y, this.width, this.height);
 
       this.DeleteImage.onload = () => {
-        this.context.drawImage(this.DeleteImage, this.x - 20, this.y - 20, 24, 24);
+        this.context.drawImage(this.DeleteImage, this.x - 12, this.y - 12, 24, 24);
       };
+      this.context.drawImage(this.DeleteImage, this.x - 12, this.y - 12, 24, 24);
 
-      this.context.drawImage(this.DeleteImage, this.x - 20, this.y - 20, 24, 24);
       this.ZoomImage.onload = () => {
         this.context.drawImage(
           this.ZoomImage,
-          this.x - 5 + this.width,
-          this.y - 5 + this.height,
+          this.x + this.width - 12,
+          this.y + this.height - 12,
           24,
           24,
         );
       };
-
       this.context.drawImage(
         this.ZoomImage,
-        this.x - 5 + this.width,
-        this.y - 5 + this.height,
+        this.x + this.width - 12,
+        this.y + this.height - 12,
         24,
         24,
       );
@@ -149,16 +165,30 @@ class Text {
   public tapWhere(x: number, y: number) {
     const zoomW = 24;
     const zoomH = 24;
-    const zoomX = this.x + this.width;
-    const zoomY = this.y + this.height;
+    let zoomX = this.x + this.width;
+    let zoomY = this.y + this.height;
+
+    const zoomAngle =
+      (Math.atan2(zoomY - this.centerY, zoomX - this.centerX) / Math.PI) * 180 + this.angle;
+    const zoomXY = this.getZoom(zoomX, zoomY, zoomAngle, 12);
+
+    zoomX = zoomXY.x;
+    zoomY = zoomXY.y;
 
     const delW = 24;
     const delH = 24;
-    const delX = this.x - 20;
-    const delY = this.y - 20;
+    let delX = this.x;
+    let delY = this.y;
+    const delAngle =
+      (Math.atan2(delY - this.centerY, delX - this.centerX) / Math.PI) * 180 + this.angle;
+    const delXY = this.getZoom(delX, delY, delAngle, 12);
+    delX = delXY.x;
+    delY = delXY.y;
 
     const moveX = this.x - 10;
     const moveY = this.y - 10;
+
+    // debugger;
 
     if (x - zoomX >= 0 && y - zoomY >= 0 && zoomX + zoomW - x >= 0 && zoomY + zoomH - y >= 0) {
       return (this.lastTapedPlace = "zoom");
@@ -171,13 +201,28 @@ class Text {
     if (
       x - moveX >= 0 &&
       y - moveY >= 0 &&
-      moveX + this.width + 20 - x >= 0 &&
-      moveY + this.height + 20 - y >= 0
+      moveX + this.width - x >= 0 &&
+      moveY + this.height - y >= 0
     ) {
       return (this.lastTapedPlace = "text");
     }
 
     return (this.lastTapedPlace = null);
+  }
+
+  private getZoom(x: number, y: number, angle: number, delta: number) {
+    const _angle = (Math.PI / 180) * angle;
+
+    const r = Math.sqrt(Math.pow(x - this.centerX, 2) + Math.pow(y - this.centerY, 2));
+
+    const a = Math.sin(_angle) * r;
+
+    const b = Math.cos(_angle) * r;
+
+    return {
+      x: this.centerX + b - delta,
+      y: this.centerY + a - delta,
+    };
   }
 }
 

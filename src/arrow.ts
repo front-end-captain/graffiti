@@ -6,6 +6,7 @@ class Arrow {
   public size: number;
   public readonly points: Point[];
   private context: CanvasRenderingContext2D;
+  public readonly id: number;
 
   constructor(context: CanvasRenderingContext2D, options: { color?: string; size?: number } = {}) {
     this.name = "arrow";
@@ -16,6 +17,8 @@ class Arrow {
     this.context = context;
 
     this.points = [];
+
+    this.id = Date.now();
   }
 
   public setSize(size: number) {

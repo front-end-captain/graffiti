@@ -317,9 +317,10 @@ class Graffito {
 
   private strokeTextStart(event: HammerInput) {
     if (this.currentPanedText) {
+      this.clear();
+
       this.currentPanedText.x = event.center.x;
       this.currentPanedText.y = event.center.y;
-      this.clear();
     }
   }
 
@@ -341,6 +342,7 @@ class Graffito {
         this.clear();
 
         this.currentPanedText?.drawText(this.currentPanedText.color, x, y);
+
         // console.log(this.currentPanedText.x);
         this.fromData(this.currentDrawData, this.context);
       });
@@ -353,6 +355,68 @@ class Graffito {
   private strokeTextEnd(event: HammerInput) {
     if (this.currentPanedText) {
       this.strokeTextUpdate(event);
+    }
+  }
+
+  private zoomTextStart(event: HammerInput) {
+    if (this.currentPanedText) {
+      this.currentPanedText.x = event.center.x;
+      this.currentPanedText.y = event.center.y;
+
+      this.zoomTextUpdate(event);
+    }
+  }
+
+  private zoomTextUpdate(event: HammerInput) {
+    // console.log("zoom text update", event.center);
+
+    if (this.currentPanedText) {
+      const { width, height, angle, x, y } = this.currentPanedText;
+
+      const centerX = width / 2;
+      const centerY = height / 2;
+
+      const angleBefore = (Math.atan2(y - centerY, x - centerX) / Math.PI) * 180;
+      const angleAfter = (Math.atan2(y - centerY, x - centerX) / Math.PI) * 180;
+
+      this.currentPanedText.centerX = centerX;
+      this.currentPanedText.centerY = centerY;
+
+      this.currentPanedText.x = event.center.x;
+      this.currentPanedText.y = event.center.y;
+
+      this.currentPanedText.angle = angle + angleAfter - angleBefore;
+
+      // console.log(this.currentDrawData);
+
+      const lineA = Math.sqrt(Math.pow(centerX - x, 2) + Math.pow(centerY - y, 2));
+      const lineB = Math.sqrt(
+        Math.pow(centerX - event.center.x, 2) + Math.pow(centerY - event.center.y, 2),
+      );
+
+      const h = height + (lineB - lineA) * (height / width);
+      const w = width + (lineB - lineA);
+
+      this.currentPanedText.width = w <= 5 ? 5 : w;
+      this.currentPanedText.height = h <= 5 ? 5 : h;
+
+      this.clear();
+
+      if (w > 5 && h > 5) {
+        this.currentPanedText.drawText(
+          this.currentPanedText.color,
+          x - (lineB - lineA) / 2,
+          y - (lineB - lineA) / 2,
+        );
+      }
+
+      this.fromData(this.currentDrawData, this.context);
+    }
+  }
+
+  private zoomTextEnd(event: HammerInput) {
+    if (this.currentPanedText) {
+      this.zoomTextUpdate(event);
     }
   }
 
@@ -370,6 +434,7 @@ class Graffito {
     if (this.mode === "arrow") {
       this.strokeArrowBegin(event);
     }
+
     const tapedTextBoxList = this.currentDrawData.filter((d) => {
       if (d instanceof Text) {
         const place = d.tapWhere(event.center.x, event.center.y);
@@ -391,7 +456,7 @@ class Graffito {
         this.strokeTextStart(event);
       }
       if (this.currentPanedText.lastTapedPlace === "zoom") {
-        console.log("zoom start");
+        this.zoomTextStart(event);
       }
     }
   };
@@ -410,7 +475,7 @@ class Graffito {
           this.strokeTextUpdate(event);
         }
         if (this.currentPanedText.lastTapedPlace === "zoom") {
-          console.log("zoom move");
+          this.zoomTextUpdate(event);
         }
       }
     }
@@ -431,7 +496,7 @@ class Graffito {
           this.strokeTextEnd(event);
         }
         if (this.currentPanedText.lastTapedPlace === "zoom") {
-          console.log("zoom end");
+          this.zoomTextEnd(event);
         }
       }
     }
@@ -469,6 +534,8 @@ class Graffito {
     const tapedTextBoxList = this.currentDrawData.filter((d) => {
       if (d instanceof Text) {
         const place = d.tapWhere(event.center.x, event.center.y);
+
+        console.log(place);
 
         if (place) {
           return true;
