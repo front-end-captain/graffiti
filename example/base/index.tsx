@@ -11,7 +11,8 @@ const bgList = [
   // "https://s1.firstleap.cn/s/visitor/206562666703746341599471663168.jpg",
   // "https://media.prod.mdn.mozit.cloud/attachments/2013/06/22/5397/7a3ec0cae64a95ad454ac3bc2c71c004/rhino.jpg",
   // "https://media.prod.mdn.mozit.cloud/attachments/2012/07/09/205/c86a62360a8c3b1347e651244d6b3137/Canvas_art_gallery.jpg",
-  "https://s1.firstleap.cn/s/visitor/55853793621113051598262939310.png",
+  // "https://s1.firstleap.cn/s/visitor/55853793621113051598262939310.png",
+  "https://classflow-file.firstleap.cn/image/20200428/15880339391588033939DdKxGh.jpg",
 ];
 
 // new VConsole();

@@ -6,50 +6,52 @@ interface TextOptions {
   color: string;
 }
 
-type TapedPlace = "zoom" | "delete" | "text";
+type TapedPlace = "zoom" | "delete" | "text" | null;
 
 class Text {
-  public x: number;
-  public y: number;
+  private _x: number;
+  private _y: number;
 
-  public width: number;
-  public height: number;
-  public lintAmount: number;
+  private _width: number;
+  private _height: number;
 
-  public angle: number;
-  public selected: boolean;
+  private _lineAmount: number;
 
-  public content: string;
-  public color: string;
+  private _angle: number;
+  private _selected: boolean;
 
-  private context: CanvasRenderingContext2D;
-  private canvas: HTMLCanvasElement;
+  private _content: string;
+  private _color: string;
+
+  private _context: CanvasRenderingContext2D;
+  private _canvas: HTMLCanvasElement;
 
   private DeleteImage: HTMLImageElement;
   private ZoomImage: HTMLImageElement;
 
-  public lastTapedPlace: TapedPlace | null;
+  private _lastTapedPlace: TapedPlace;
 
   public readonly id: number;
 
-  public centerX: number;
-  public centerY: number;
+  private _centerX: number;
+  private _centerY: number;
+
+  private _startX: number;
+
+  private _startY: number;
+
+  private _initWidth: number;
+  private _initHeight: number;
 
   constructor(context: CanvasRenderingContext2D, canvas: HTMLCanvasElement, options: TextOptions) {
-    this.context = context;
-    this.canvas = canvas;
+    this._context = context;
+    this._canvas = canvas;
 
-    this.content = options.text;
-    this.color = options.color;
+    this._content = options.text;
+    this._color = options.color;
 
-    this.x = 0;
-    this.y = 0;
-
-    this.width = 0;
-    this.height = 0;
-    this.lintAmount = 1;
-    this.angle = 0;
-    this.selected = true;
+    this._angle = 0;
+    this._selected = true;
 
     this.DeleteImage = new Image();
     this.DeleteImage.src = DeleteIcon;
@@ -57,37 +59,13 @@ class Text {
     this.ZoomImage = new Image();
     this.ZoomImage.src = ZoomIcon;
 
-    this.lastTapedPlace = null;
+    this._lastTapedPlace = null;
 
     this.id = Date.now();
 
-    this.centerX = 0;
-    this.centerY = 0;
-  }
-
-  public setContext(context: CanvasRenderingContext2D) {
-    this.context = context;
-  }
-
-  public setSelected(selected: boolean) {
-    console.log("set selected", selected);
-
-    this.selected = selected;
-  }
-
-  public setContent(content: string) {
-    this.content = content;
-  }
-
-  public setColor(color: string) {
-    this.color = color;
-  }
-
-  public drawText(color?: string, initX?: number, initY?: number) {
-    const textList = this.content.split("\n");
-    this.context.save();
-    this.context.font = "30px PingFangSC-Semibold, PingFang SC";
-    const { width: textWidth } = this.context.measureText(textList[0]);
+    const textList = this._content.split("\n");
+    this._context.font = "30px PingFangSC-Semibold, PingFang SC";
+    const { width: textWidth } = this._context.measureText(textList[0]);
 
     // console.log("initLeft, initTop", initLeft, initTop);
     // console.log(textList, textWidth);
@@ -95,81 +73,342 @@ class Text {
     const height = 32 * textList.length;
 
     const _left =
-      this.canvas.width === window.innerWidth
-        ? this.canvas.width / 2 - textWidth / 2
-        : window.innerWidth / 2 - textWidth / 2;
+      this._canvas.width === window.innerWidth
+        ? this._canvas.width / 2 - textWidth / 2
+        : ((window.innerWidth - this._canvas.width) / 2 - textWidth) / 2;
 
-    const left = initX || (_left < 0 ? 0 : _left);
+    const left = _left < 0 ? 0 : _left;
+
     const top =
-      initY ||
-      (this.canvas.height === window.innerHeight
-        ? this.canvas.height / 2 - height / 2
-        : window.innerHeight / 2 - height / 2);
+      this._canvas.height === window.innerHeight
+        ? window.innerHeight / 2 - height / 2
+        : ((window.innerHeight - this._canvas.height) / 2 - height) / 2;
 
-    const width = textWidth > this.canvas.width ? this.canvas.width - 25 : textWidth;
+    const width = textWidth > this._canvas.width ? this._canvas.width - 25 : textWidth;
 
-    this.x = left;
-    this.y = top;
-    this.width = width;
-    this.height = height;
+    this._x = left;
+    this._y = top;
+    this._width = width;
+    this._height = height;
+    this._initHeight = height;
+    this._initWidth = width;
+    this._startX = left;
+    this._startY = top;
+    this._lineAmount = textList.length;
+    this._centerY = this._y + this._height / 2;
+    this._centerX = this._x + this._width / 2;
+  }
 
-    this.centerY = this.y + this.height / 2;
-    this.centerX = this.x + this.width / 2;
+  public setContext(context: CanvasRenderingContext2D) {
+    this._context = context;
+  }
 
-    // console.log(this.x, this.y, this.width, this.height);
+  /**
+   * Getter x
+   * @return {number}
+   */
+  public get x(): number {
+    return this._x;
+  }
 
-    this.context.translate(this.centerX, this.centerY);
-    this.context.rotate((this.angle * Math.PI) / 180);
-    this.context.translate(-this.centerX, -this.centerY);
+  /**
+   * Setter x
+   * @param {number} value
+   */
+  public set x(value: number) {
+    this._x = value;
+  }
 
-    this.context.fillStyle = color || this.color;
-    this.context.textAlign = "left";
-    this.context.textBaseline = "top";
+  /**
+   * Getter y
+   * @return {number}
+   */
+  public get y(): number {
+    return this._y;
+  }
+
+  /**
+   * Setter y
+   * @param {number} value
+   */
+  public set y(value: number) {
+    this._y = value;
+  }
+
+  /**
+   * Getter lineAmount
+   * @return {number}
+   */
+  public get lineAmount(): number {
+    return this._lineAmount;
+  }
+
+  /**
+   * Getter width
+   * @return {number}
+   */
+  public get width(): number {
+    return this._width;
+  }
+
+  /**
+   * Setter width
+   * @param {number} value
+   */
+  public set width(value: number) {
+    this._width = value;
+  }
+
+  /**
+   * Getter height
+   * @return {number}
+   */
+  public get height(): number {
+    return this._height;
+  }
+
+  /**
+   * Setter height
+   * @param {number} value
+   */
+  public set height(value: number) {
+    this._height = value;
+  }
+
+  /**
+   * Getter angle
+   * @return {number}
+   */
+  public get angle(): number {
+    return this._angle;
+  }
+
+  /**
+   * Setter angle
+   * @param {number} value
+   */
+  public set angle(value: number) {
+    this._angle = value;
+  }
+
+  /**
+   * Getter selected
+   * @return {boolean}
+   */
+  public get selected(): boolean {
+    return this._selected;
+  }
+
+  /**
+   * Setter selected
+   * @param {boolean} value
+   */
+  public set selected(value: boolean) {
+    this._selected = value;
+  }
+
+  /**
+   * Getter content
+   * @return {string}
+   */
+  public get content(): string {
+    return this._content;
+  }
+
+  /**
+   * Setter content
+   * @param {string} value
+   */
+  public set content(value: string) {
+    this._content = value;
+  }
+
+  /**
+   * Getter color
+   * @return {string}
+   */
+  public get color(): string {
+    return this._color;
+  }
+
+  /**
+   * Setter color
+   * @param {string} value
+   */
+  public set color(value: string) {
+    this._color = value;
+  }
+
+  /**
+   * Getter lastTapedPlace
+   * @return {TapedPlace }
+   */
+  public get lastTapedPlace(): TapedPlace {
+    return this._lastTapedPlace;
+  }
+
+  /**
+   * Setter lastTapedPlace
+   * @param {TapedPlace } value
+   */
+  public set lastTapedPlace(value: TapedPlace) {
+    this._lastTapedPlace = value;
+  }
+
+  /**
+   * Getter centerX
+   * @return {number}
+   */
+  public get centerX(): number {
+    return this._centerX;
+  }
+
+  /**
+   * Setter centerX
+   * @param {number} value
+   */
+  public set centerX(value: number) {
+    this._centerX = value;
+  }
+
+  /**
+   * Getter centerY
+   * @return {number}
+   */
+  public get centerY(): number {
+    return this._centerY;
+  }
+
+  /**
+   * Setter centerY
+   * @param {number} value
+   */
+  public set centerY(value: number) {
+    this._centerY = value;
+  }
+
+  /**
+   * Getter startX
+   * @return {number}
+   */
+  public get startX(): number {
+    return this._startX;
+  }
+
+  /**
+   * Setter startX
+   * @param {number} value
+   */
+  public set startX(value: number) {
+    this._startX = value;
+  }
+
+  /**
+   * Getter startY
+   * @return {number}
+   */
+  public get startY(): number {
+    return this._startY;
+  }
+
+  /**
+   * Setter startY
+   * @param {number} value
+   */
+  public set startY(value: number) {
+    this._startY = value;
+  }
+
+  /**
+   * Getter initHeight
+   * @return {number}
+   */
+  public get initHeight(): number {
+    return this._initHeight;
+  }
+
+  /**
+   * Setter initHeight
+   * @param {number} value
+   */
+  public set initHeight(value: number) {
+    this._initHeight = value;
+  }
+
+  /**
+   * Getter initWidth
+   * @return {number}
+   */
+  public get initWidth(): number {
+    return this._initWidth;
+  }
+
+  /**
+   * Setter initWidth
+   * @param {number} value
+   */
+  public set initWidth(value: number) {
+    this._initWidth = value;
+  }
+
+  public drawText() {
+    const textList = this._content.split("\n");
+
+    // console.log(this._x, this._y, this._width, this._height);
+
+    // this._context.translate(this._centerX, this._centerY);
+    // this._context.rotate((this._angle * Math.PI) / 180);
+    // this._context.translate(-this._centerX, -this._centerY);
+
+    this._context.font = "30px PingFangSC-Semibold, PingFang SC";
+    this._context.fillStyle = this._color;
+    this._context.textAlign = "left";
+    this._context.textBaseline = "top";
 
     textList.forEach((t, i) => {
-      this.context.fillText(t, this.x, this.y + i * 32);
+      this._context.fillText(t, this._x, this._y + i * 32);
     });
 
-    // console.log(this.selected);
+    // console.log(this._selected);
 
-    if (this.selected) {
-      this.context.lineWidth = 1;
-      this.context.strokeStyle = "#fff";
-      this.context.strokeRect(this.x, this.y, this.width, this.height);
+    if (this._selected) {
+      this._context.lineWidth = 1;
+      this._context.strokeStyle = "#fff";
+      this._context.strokeRect(this._x, this._y, this._width, this._height);
 
       this.DeleteImage.onload = () => {
-        this.context.drawImage(this.DeleteImage, this.x - 12, this.y - 12, 24, 24);
+        this._context.drawImage(this.DeleteImage, this._x - 12, this._y - 12, 24, 24);
       };
-      this.context.drawImage(this.DeleteImage, this.x - 12, this.y - 12, 24, 24);
+      this._context.drawImage(this.DeleteImage, this._x - 12, this._y - 12, 24, 24);
 
       this.ZoomImage.onload = () => {
-        this.context.drawImage(
+        this._context.drawImage(
           this.ZoomImage,
-          this.x + this.width - 12,
-          this.y + this.height - 12,
+          this._x + this._width - 12,
+          this._y + this._height - 12,
           24,
           24,
         );
       };
-      this.context.drawImage(
+      this._context.drawImage(
         this.ZoomImage,
-        this.x + this.width - 12,
-        this.y + this.height - 12,
+        this._x + this._width - 12,
+        this._y + this._height - 12,
         24,
         24,
       );
     }
-    this.context.restore();
+    this._context.restore();
   }
 
   public tapWhere(x: number, y: number) {
     const zoomW = 24;
     const zoomH = 24;
-    let zoomX = this.x + this.width;
-    let zoomY = this.y + this.height;
+    let zoomX = this._x + this._width;
+    let zoomY = this._y + this._height;
 
     const zoomAngle =
-      (Math.atan2(zoomY - this.centerY, zoomX - this.centerX) / Math.PI) * 180 + this.angle;
+      (Math.atan2(zoomY - this._centerY, zoomX - this._centerX) / Math.PI) * 180 + this._angle;
     const zoomXY = this.getZoom(zoomX, zoomY, zoomAngle, 12);
 
     zoomX = zoomXY.x;
@@ -177,51 +416,49 @@ class Text {
 
     const delW = 24;
     const delH = 24;
-    let delX = this.x;
-    let delY = this.y;
+    let delX = this._x;
+    let delY = this._y;
     const delAngle =
-      (Math.atan2(delY - this.centerY, delX - this.centerX) / Math.PI) * 180 + this.angle;
+      (Math.atan2(delY - this._centerY, delX - this._centerX) / Math.PI) * 180 + this._angle;
     const delXY = this.getZoom(delX, delY, delAngle, 12);
     delX = delXY.x;
     delY = delXY.y;
 
-    const moveX = this.x - 10;
-    const moveY = this.y - 10;
-
-    // debugger;
+    const moveX = this._x - 10;
+    const moveY = this._y - 10;
 
     if (x - zoomX >= 0 && y - zoomY >= 0 && zoomX + zoomW - x >= 0 && zoomY + zoomH - y >= 0) {
-      return (this.lastTapedPlace = "zoom");
+      return (this._lastTapedPlace = "zoom");
     }
 
     if (x - delX >= 0 && y - delY >= 0 && delX + delW - x >= 0 && delY + delH - y >= 0) {
-      return (this.lastTapedPlace = "delete");
+      return (this._lastTapedPlace = "delete");
     }
 
     if (
       x - moveX >= 0 &&
       y - moveY >= 0 &&
-      moveX + this.width - x >= 0 &&
-      moveY + this.height - y >= 0
+      moveX + this._width - x >= 0 &&
+      moveY + this._height - y >= 0
     ) {
-      return (this.lastTapedPlace = "text");
+      return (this._lastTapedPlace = "text");
     }
 
-    return (this.lastTapedPlace = null);
+    return (this._lastTapedPlace = null);
   }
 
   private getZoom(x: number, y: number, angle: number, delta: number) {
     const _angle = (Math.PI / 180) * angle;
 
-    const r = Math.sqrt(Math.pow(x - this.centerX, 2) + Math.pow(y - this.centerY, 2));
+    const r = Math.sqrt(Math.pow(x - this._centerX, 2) + Math.pow(y - this._centerY, 2));
 
     const a = Math.sin(_angle) * r;
 
     const b = Math.cos(_angle) * r;
 
     return {
-      x: this.centerX + b - delta,
-      y: this.centerY + a - delta,
+      x: this._centerX + b - delta,
+      y: this._centerY + a - delta,
     };
   }
 }

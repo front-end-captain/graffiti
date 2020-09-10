@@ -44,7 +44,7 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
   private inputRef: HTMLTextAreaElement | null;
   private canvas: HTMLCanvasElement | null;
   private textMode: "create" | "edit";
-  private currentSelectedTextBoxIndex: number;
+  // private currentSelectedTextBoxIndex: number;
 
   constructor(props: GraffitiProps) {
     super(props);
@@ -66,7 +66,7 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
     };
 
     this.textMode = "create";
-    this.currentSelectedTextBoxIndex = 0;
+    // this.currentSelectedTextBoxIndex = 0;
 
     this.canvas = null;
   }
