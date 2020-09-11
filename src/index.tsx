@@ -219,17 +219,16 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
   handleConfirm = () => {
     const { onConfirm } = this.props;
 
-    // console.log(this.graffito?.toDataUrl("image/png", 1));
-
-    // const img = document.createElement("img");
-    // img.src = this.graffito?.toDataUrl("image/png", 1) || "";
-    // document.body.appendChild(img);
+    // for test
+    const img = document.createElement("img");
+    img.src = this.graffito?.toDataUrl("image/png", 1) || "";
+    document.body.appendChild(img);
 
     this.setState({ currentOperator: undefined });
     this.graffito?.setMode(undefined);
 
     if (typeof onConfirm === "function" && this.graffito) {
-      onConfirm(this.graffito.toDataUrl("image/png", 1));
+      // onConfirm(this.graffito.toDataUrl("image/png", 1));
     }
   };
 

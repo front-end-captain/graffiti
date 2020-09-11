@@ -17,7 +17,6 @@ class Text {
 
   private _lineAmount: number;
 
-  private _angle: number;
   private _selected: boolean;
 
   private _content: string;
@@ -43,6 +42,12 @@ class Text {
   private _initWidth: number;
   private _initHeight: number;
 
+  private _initFontSize: number;
+
+  private _fontSize: number;
+
+  private _padding: number;
+
   constructor(context: CanvasRenderingContext2D, canvas: HTMLCanvasElement, options: TextOptions) {
     this._context = context;
     this._canvas = canvas;
@@ -50,7 +55,6 @@ class Text {
     this._content = options.text;
     this._color = options.color;
 
-    this._angle = 0;
     this._selected = true;
 
     this.DeleteImage = new Image();
@@ -63,8 +67,13 @@ class Text {
 
     this.id = Date.now();
 
+    this._fontSize = 30;
+    this._initFontSize = 30;
+
+    this._padding = 20;
+
     const textList = this._content.split("\n");
-    this._context.font = "30px PingFangSC-Semibold, PingFang SC";
+    this._context.font = `${this.initFontSize}px PingFangSC-Semibold, PingFang SC`;
     const { width: textWidth } = this._context.measureText(textList[0]);
 
     // console.log("initLeft, initTop", initLeft, initTop);
@@ -77,23 +86,21 @@ class Text {
         ? this._canvas.width / 2 - textWidth / 2
         : ((window.innerWidth - this._canvas.width) / 2 - textWidth) / 2;
 
-    const left = _left < 0 ? 0 : _left;
-
-    const top =
+    const _top =
       this._canvas.height === window.innerHeight
         ? window.innerHeight / 2 - height / 2
         : ((window.innerHeight - this._canvas.height) / 2 - height) / 2;
 
     const width = textWidth > this._canvas.width ? this._canvas.width - 25 : textWidth;
 
-    this._x = left;
-    this._y = top;
-    this._width = width;
-    this._height = height;
+    this._x = _left - this._padding;
+    this._y = _top - this._padding;
+    this._width = width + this._padding;
+    this._height = height + this._padding;
     this._initHeight = height;
     this._initWidth = width;
-    this._startX = left;
-    this._startY = top;
+    this._startX = _left;
+    this._startY = _top;
     this._lineAmount = textList.length;
     this._centerY = this._y + this._height / 2;
     this._centerX = this._x + this._width / 2;
@@ -173,22 +180,6 @@ class Text {
    */
   public set height(value: number) {
     this._height = value;
-  }
-
-  /**
-   * Getter angle
-   * @return {number}
-   */
-  public get angle(): number {
-    return this._angle;
-  }
-
-  /**
-   * Setter angle
-   * @param {number} value
-   */
-  public set angle(value: number) {
-    this._angle = value;
   }
 
   /**
@@ -351,25 +342,51 @@ class Text {
     this._initWidth = value;
   }
 
+  /**
+   * Getter fontSize
+   * @return {number}
+   */
+  public get fontSize(): number {
+    return this._fontSize;
+  }
+
+  /**
+   * Setter fontSize
+   * @param {number} value
+   */
+  public set fontSize(value: number) {
+    this._fontSize = value;
+  }
+
+  /**
+   * Getter initFontSize
+   * @return {number}
+   */
+  public get initFontSize(): number {
+    return this._initFontSize;
+  }
+
+  /**
+   * Setter initFontSize
+   * @param {number} value
+   */
+  public set initFontSize(value: number) {
+    this._initFontSize = value;
+  }
+
   public drawText() {
     const textList = this._content.split("\n");
 
     // console.log(this._x, this._y, this._width, this._height);
 
-    // this._context.translate(this._centerX, this._centerY);
-    // this._context.rotate((this._angle * Math.PI) / 180);
-    // this._context.translate(-this._centerX, -this._centerY);
-
-    this._context.font = "30px PingFangSC-Semibold, PingFang SC";
+    this._context.font = `${this.fontSize}px PingFangSC-Semibold, PingFang SC`;
     this._context.fillStyle = this._color;
     this._context.textAlign = "left";
     this._context.textBaseline = "top";
 
     textList.forEach((t, i) => {
-      this._context.fillText(t, this._x, this._y + i * 32);
+      this._context.fillText(t, this._x + this._padding / 2, this._y + this._padding / 2 + i * 32);
     });
-
-    // console.log(this._selected);
 
     if (this._selected) {
       this._context.lineWidth = 1;
@@ -404,25 +421,13 @@ class Text {
   public tapWhere(x: number, y: number) {
     const zoomW = 24;
     const zoomH = 24;
-    let zoomX = this._x + this._width;
-    let zoomY = this._y + this._height;
-
-    const zoomAngle =
-      (Math.atan2(zoomY - this._centerY, zoomX - this._centerX) / Math.PI) * 180 + this._angle;
-    const zoomXY = this.getZoom(zoomX, zoomY, zoomAngle, 12);
-
-    zoomX = zoomXY.x;
-    zoomY = zoomXY.y;
+    const zoomX = this._x + this._width;
+    const zoomY = this._y + this._height;
 
     const delW = 24;
     const delH = 24;
-    let delX = this._x;
-    let delY = this._y;
-    const delAngle =
-      (Math.atan2(delY - this._centerY, delX - this._centerX) / Math.PI) * 180 + this._angle;
-    const delXY = this.getZoom(delX, delY, delAngle, 12);
-    delX = delXY.x;
-    delY = delXY.y;
+    const delX = this._x;
+    const delY = this._y;
 
     const moveX = this._x - 10;
     const moveY = this._y - 10;
@@ -445,21 +450,6 @@ class Text {
     }
 
     return (this._lastTapedPlace = null);
-  }
-
-  private getZoom(x: number, y: number, angle: number, delta: number) {
-    const _angle = (Math.PI / 180) * angle;
-
-    const r = Math.sqrt(Math.pow(x - this._centerX, 2) + Math.pow(y - this._centerY, 2));
-
-    const a = Math.sin(_angle) * r;
-
-    const b = Math.cos(_angle) * r;
-
-    return {
-      x: this._centerX + b - delta,
-      y: this._centerY + a - delta,
-    };
   }
 }
 

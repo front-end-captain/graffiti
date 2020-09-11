@@ -293,7 +293,7 @@ class Graffito {
 
       this.clearCache();
 
-      this.fromData(this.currentDrawData, this.cacheContext);
+      this.render(this.currentDrawData, this.cacheContext);
     });
 
     if (event.type === "panend") {
@@ -320,6 +320,7 @@ class Graffito {
     if (this.currentPanedText) {
       this.clear();
 
+      this.currentPanedText.selected = true;
       this.currentPanedText.startX = event.center.x - (window.innerWidth - this.canvas.width) / 2;
       this.currentPanedText.startY = event.center.y - (window.innerHeight - this.canvas.height) / 2;
 
@@ -339,43 +340,29 @@ class Graffito {
 
       window.requestAnimationFrame(() => {
         this.clear();
-        this.fromData(this.currentDrawData, this.context);
+        this.render(this.currentDrawData, this.context);
       });
 
       // console.log(this.currentPanedText.x, this.currentPanedText.y);
 
       if (event.type === "panend") {
-        const outOfLeft = (window.innerWidth - this.canvas.width) / 2;
-        const outOfRight = outOfLeft + this.canvas.width;
-        const outOfTop = (window.innerHeight - this.canvas.height) / 2;
-        const outOfBottom = outOfTop + this.canvas.height;
+        const outOfRight = this.canvas.width;
+        const outOfBottom = this.canvas.height;
 
-        // console.log(x, y);
-        // console.log(outOfLeft, outOfRight, outOfTop, outOfBottom);
+        const outOfTopOrBottom =
+          this.currentPanedText.y < 0 ||
+          this.currentPanedText.y + this.currentPanedText.height > outOfBottom;
 
-        if (
-          this.currentPanedText.x < outOfLeft ||
-          this.currentPanedText.x + this.currentPanedText.width > outOfRight
-        ) {
-          // console.log("out of left or right");
+        const outOfLeftOrRight =
+          this.currentPanedText.x < 0 ||
+          this.currentPanedText.x + this.currentPanedText.width > outOfRight;
+
+        if (outOfLeftOrRight || outOfTopOrBottom) {
           this.currentPanedText.x = startX - width / 2;
           this.currentPanedText.y = startY - height / 2;
 
           this.clear();
-          this.fromData(this.currentDrawData, this.context);
-          return;
-        }
-
-        if (
-          this.currentPanedText.y > outOfTop ||
-          this.currentPanedText.y + this.currentPanedText.height < outOfBottom
-        ) {
-          // console.log("out of top or bottom");
-          this.currentPanedText.x = startX - width / 2;
-          this.currentPanedText.y = startY - height / 2;
-
-          this.clear();
-          this.fromData(this.currentDrawData, this.context);
+          this.render(this.currentDrawData, this.context);
           return;
         }
 
@@ -415,49 +402,37 @@ class Graffito {
         centerY,
         initHeight,
         initWidth,
+        initFontSize,
       } = this.currentPanedText;
 
       const x = startX + event.deltaX - width / 2;
       const y = startY + event.deltaY - height / 2;
-      this.currentPanedText.x = x;
-      this.currentPanedText.y = y;
-
-      // const angleBefore = (Math.atan2(startY - centerY, startX - centerX) / Math.PI) * 180;
-      // const angleAfter = (Math.atan2(event.center.y - centerY, event.center.x - centerX) / Math.PI) * 180;
-
-      // console.log(angleBefore, angleAfter);
-
-      // this.currentPanedText.angle = angle + angleAfter - angleBefore;
-
-      // console.log(this.currentPanedText.angle);
 
       const lineA = Math.sqrt(Math.pow(centerX - startX, 2) + Math.pow(centerY - startY, 2));
       const lineB = Math.sqrt(Math.pow(centerX - x, 2) + Math.pow(centerY - y, 2));
 
-      // console.log(lineA, lineB);
-
       const rate = initHeight / initWidth;
       const w = initWidth + (lineB - lineA);
       const h = initHeight + (lineB - lineA) * rate;
+      const _fontSize = initFontSize + (lineB - lineA) * rate;
 
-      // console.log(rate, w, h);
+      this.currentPanedText.width = w <= 5 ? 5 : w > this.canvas.width ? this.canvas.width : w;
+      this.currentPanedText.height = h <= 5 ? 5 : h > this.canvas.height ? this.canvas.height : h;
 
-      this.currentPanedText.width = w <= 5 ? 5 : w;
-      this.currentPanedText.height = h <= 5 ? 5 : h;
-      this.currentPanedText.x = x - (lineB - lineA) / 2;
-      this.currentPanedText.y = y - (lineB - lineA) / 2;
+      this.currentPanedText.x = startX - (lineA - lineB) / 2 - width;
+      this.currentPanedText.y = startY - (lineA - lineB) / 2 - height;
+
+      this.currentPanedText.fontSize = _fontSize;
 
       this.clear();
 
-      // if (w > 5 && h > 5) {
-      //   this.currentPanedText.drawText(
-      //     this.currentPanedText.color,
-      //     x - (lineB - lineA) / 2,
-      //     y - (lineB - lineA) / 2,
-      //   );
-      // }
+      this.render(this.currentDrawData, this.context);
 
-      this.fromData(this.currentDrawData, this.context);
+      if (event.type === "panend") {
+        this.currentPanedText.initFontSize = _fontSize;
+        this.currentPanedText.initHeight = h;
+        this.currentPanedText.initWidth = w;
+      }
     }
   }
 
@@ -615,7 +590,7 @@ class Graffito {
         if (typeof this.options.onSelectText === "function") {
           this.currentTapedText.selected = true;
 
-          this.fromData(this.currentDrawData, this.context);
+          this.render(this.currentDrawData, this.context);
 
           this.options.onSelectText(
             (tapedTextBoxList[tapedTextBoxList.length - 1] as Text).content,
@@ -639,7 +614,7 @@ class Graffito {
 
         this.clear();
 
-        this.fromData(this.currentDrawData, this.context);
+        this.render(this.currentDrawData, this.context);
 
         this.currentTapedText = null;
       }
@@ -652,7 +627,7 @@ class Graffito {
     this.Hammer.on("tap", this.handleTapCanvas);
   }
 
-  private fromData(drawDataGroup: DrawDataGroup[], context?: CanvasRenderingContext2D) {
+  private render(drawDataGroup: DrawDataGroup[], context?: CanvasRenderingContext2D) {
     if (drawDataGroup.length === 0) {
       this.clear();
       return;
@@ -708,13 +683,13 @@ class Graffito {
 
     this.fullDrawData = this.currentDrawData;
 
-    this.fromData(this.currentDrawData, this.context);
+    this.render(this.currentDrawData, this.context);
 
     if (this.options.onDrawEnd) {
       this.options.onDrawEnd(this.currentDrawData, this.getCanUndo(), this.getCanRedo());
     }
 
-    console.log(this.currentDrawData);
+    // console.log(this.currentDrawData);
   }
 
   public editText(text: string, color: string) {
@@ -724,7 +699,7 @@ class Graffito {
       this.currentTapedText.content = text;
       this.currentTapedText.selected = true;
 
-      this.fromData(this.currentDrawData, this.context);
+      this.render(this.currentDrawData, this.context);
 
       if (this.options.onDrawEnd) {
         this.options.onDrawEnd(this.currentDrawData, this.getCanUndo(), this.getCanRedo());
@@ -768,7 +743,7 @@ class Graffito {
 
     this.clear();
 
-    this.fromData(this.currentDrawData, this.context);
+    this.render(this.currentDrawData, this.context);
   }
 
   public redo() {
@@ -781,11 +756,13 @@ class Graffito {
 
       this.clear();
 
-      this.fromData(this.currentDrawData, this.context);
+      this.render(this.currentDrawData, this.context);
     }
   }
 
   public toDataUrl(type = "image/png", quality?: number): string {
+    this.unActivityEveryText();
+
     return this.canvas.toDataURL(type, quality);
   }
 
@@ -798,7 +775,7 @@ class Graffito {
       }
     });
 
-    this.fromData(this.currentDrawData, this.context);
+    this.render(this.currentDrawData, this.context);
   }
 
   public rotateBg() {
