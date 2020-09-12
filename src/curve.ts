@@ -11,7 +11,7 @@ class Curve {
   public readonly points: Point[];
   public readonly name: string;
   private context: CanvasRenderingContext2D;
-  private readonly id: number;
+  public readonly id: number;
 
   constructor(context: CanvasRenderingContext2D, options: CurveOptions = {}) {
     this.context = context;

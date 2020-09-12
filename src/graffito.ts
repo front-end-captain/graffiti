@@ -54,7 +54,6 @@ class Graffito {
   private currentDrawData: DrawDataGroup[];
 
   private Hammer: HammerManager;
-  private HammerCache: HammerManager;
 
   private currentTapedText: Text | null;
 
@@ -78,10 +77,10 @@ class Graffito {
     this.cacheCanvas = cacheCanvas;
     this.cacheContext = _cacheContext;
 
-    this.options = options;
-
     this.canvas = canvas;
     this.context = _context;
+
+    this.options = options;
 
     this.mode = options.mode;
     this.isMouseDown = false;
@@ -103,7 +102,6 @@ class Graffito {
     this.currentDrawData = [];
 
     this.Hammer = new HammerJs(this.canvas);
-    this.HammerCache = new HammerJs(this.cacheCanvas);
 
     this.currentTapedText = null;
     this.currentPanedText = null;
@@ -128,21 +126,6 @@ class Graffito {
     }
   }
 
-  private clearCache() {
-    this.cacheContext.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    this.cacheContext.fillRect(0, 0, this.canvas.width, this.canvas.height);
-
-    if (this.backgroundImage.image) {
-      this.cacheContext.drawImage(
-        this.backgroundImage.image,
-        0,
-        0,
-        this.canvas.width,
-        this.canvas.height,
-      );
-    }
-  }
-
   private bindEvent(): void {
     this.canvas.style.touchAction = "none";
     this.canvas.style.msTouchAction = "none";
@@ -152,7 +135,6 @@ class Graffito {
   }
 
   public offEvent(): void {
-    // Enable panning/zooming when touching canvas element
     this.canvas.style.touchAction = "auto";
     this.canvas.style.msTouchAction = "auto";
 
@@ -229,8 +211,6 @@ class Graffito {
     this.currentDrawData.push(curve);
     this.fullDrawData = this.currentDrawData;
 
-    // console.log(this.currentDrawData);
-
     this.strokeCurveUpdate(event);
   }
 
@@ -240,8 +220,6 @@ class Graffito {
     const point = this.createPoint(event.center.x, event.center.y);
 
     const lastCurve = this.currentDrawData[this.currentDrawData.length - 1];
-
-    // console.log(lastCurve);
 
     const { points } = lastCurve as Curve;
     const lastPoint = points[points.length - 1];
@@ -265,14 +243,7 @@ class Graffito {
       return;
     }
 
-    this.cacheContext.putImageData(
-      this.context.getImageData(0, 0, this.canvas.width, this.canvas.height),
-      0,
-      0,
-    );
-    this.cacheCanvas.style.zIndex = "3";
-
-    const arrow = new Arrow(this.cacheContext, { color: this.arrowColor, size: this.arrowSize });
+    const arrow = new Arrow(this.context, { color: this.arrowColor, size: this.arrowSize });
     arrow.addPoint(this.createPoint(event.center.x, event.center.y));
 
     this.currentDrawData.push(arrow);
@@ -289,23 +260,12 @@ class Graffito {
 
     window.requestAnimationFrame(() => {
       (lastArrow as Arrow).drawArrow(firstPoint, point);
-      (lastArrow as Curve).addPoint(point);
+      (lastArrow as Arrow).addPoint(point);
 
-      this.clearCache();
+      this.clear();
 
-      this.render(this.currentDrawData, this.cacheContext);
+      this.render(this.currentDrawData, this.context);
     });
-
-    if (event.type === "panend") {
-      this.cacheCanvas.style.zIndex = "1";
-      this.context.putImageData(
-        this.cacheContext.getImageData(0, 0, this.cacheCanvas.width, this.cacheCanvas.height),
-        0,
-        0,
-      );
-
-      this.clearCache();
-    }
   }
 
   private strokeArrowEnd(event: HammerInput) {
@@ -342,8 +302,6 @@ class Graffito {
         this.clear();
         this.render(this.currentDrawData, this.context);
       });
-
-      // console.log(this.currentPanedText.x, this.currentPanedText.y);
 
       if (event.type === "panend") {
         const outOfRight = this.canvas.width;
@@ -382,6 +340,8 @@ class Graffito {
 
   private zoomTextStart(event: HammerInput) {
     if (this.currentPanedText) {
+      // console.log("this.currentPanedText", this.currentPanedText);
+
       this.currentPanedText.startX = event.center.x - (window.innerWidth - this.canvas.width) / 2;
       this.currentPanedText.startY = event.center.y - (window.innerHeight - this.canvas.height) / 2;
 
@@ -390,7 +350,7 @@ class Graffito {
   }
 
   private zoomTextUpdate(event: HammerInput) {
-    // console.log("zoom text update", event.center);
+    // console.log("%cZoom text update", "color: red", event.center, event.deltaX, event.deltaY);
 
     if (this.currentPanedText) {
       const {
@@ -405,8 +365,8 @@ class Graffito {
         initFontSize,
       } = this.currentPanedText;
 
-      const x = startX + event.deltaX - width / 2;
-      const y = startY + event.deltaY - height / 2;
+      const x = event.center.x - (window.innerWidth - this.canvas.width) / 2;
+      const y = event.center.y - (window.innerHeight - this.canvas.height) / 2;
 
       const lineA = Math.sqrt(Math.pow(centerX - startX, 2) + Math.pow(centerY - startY, 2));
       const lineB = Math.sqrt(Math.pow(centerX - x, 2) + Math.pow(centerY - y, 2));
@@ -416,17 +376,19 @@ class Graffito {
       const h = initHeight + (lineB - lineA) * rate;
       const _fontSize = initFontSize + (lineB - lineA) * rate;
 
-      this.currentPanedText.width = w <= 5 ? 5 : w > this.canvas.width ? this.canvas.width : w;
-      this.currentPanedText.height = h <= 5 ? 5 : h > this.canvas.height ? this.canvas.height : h;
+      if (_fontSize < 42) {
+        this.currentPanedText.width = w <= 5 ? 5 : w > this.canvas.width ? this.canvas.width : w;
+        this.currentPanedText.height = h <= 5 ? 5 : h > this.canvas.height ? this.canvas.height : h;
 
-      this.currentPanedText.x = startX - (lineA - lineB) / 2 - width;
-      this.currentPanedText.y = startY - (lineA - lineB) / 2 - height;
+        this.currentPanedText.x = startX - (lineA - lineB) / 2 - width;
+        this.currentPanedText.y = startY - (lineA - lineB) / 2 - height;
 
-      this.currentPanedText.fontSize = _fontSize;
+        this.currentPanedText.fontSize = _fontSize;
 
-      this.clear();
+        this.clear();
 
-      this.render(this.currentDrawData, this.context);
+        this.render(this.currentDrawData, this.context);
+      }
 
       if (event.type === "panend") {
         this.currentPanedText.initFontSize = _fontSize;
@@ -449,6 +411,7 @@ class Graffito {
     }
 
     this.isMouseDown = true;
+    this.currentPanedText = null;
 
     if (this.mode === "curve") {
       this.strokeCurveBegin(event);
@@ -555,33 +518,24 @@ class Graffito {
     this.Hammer.on("panmove", this.handlePanMove);
     this.Hammer.on("panend", this.handlePanEnd);
     this.Hammer.on("pancancel", this.handlePanCancel);
-
-    this.HammerCache.on("panstart", this.handlePanStart);
-    this.HammerCache.on("panmove", this.handlePanMove);
-    this.HammerCache.on("panend", this.handlePanEnd);
-    this.HammerCache.on("pancancel", this.handlePanCancel);
   }
 
   private handleTapCanvas = (event: HammerInput) => {
-    // console.log("tap", event);
+    this.currentTapedText = null;
+
     const tapedTextBoxList: DrawDataGroup[] = [];
     this.currentDrawData.forEach((d) => {
       if (d instanceof Text) {
-        // const p = event.center.x -
         const x = event.center.x - (window.innerWidth - this.canvas.width) / 2;
         const y = event.center.y - (window.innerHeight - this.canvas.height) / 2;
 
         const place = d.tapWhere(x, y);
-
-        // console.log(place);
 
         if (place) {
           tapedTextBoxList.push(d);
         }
       }
     });
-
-    // console.log(tapedTextBoxList);
 
     if (tapedTextBoxList.length > 0) {
       this.currentTapedText = tapedTextBoxList[tapedTextBoxList.length - 1] as Text;
@@ -749,6 +703,7 @@ class Graffito {
   public redo() {
     const _data = Array.from(this.currentDrawData);
     const willAddedDrawData = this.fullDrawData[_data.length];
+
     if (willAddedDrawData) {
       _data.push(willAddedDrawData);
 
