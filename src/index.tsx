@@ -7,6 +7,7 @@ import "./style";
 
 const colorList = ["#FFFFFF", "#333333", "#FF5555", "#50C081", "#3CBEEF", "#FFE04E"];
 const dotSizeList = [6, 10, 14];
+const fontSizeList = [14, 18, 22, 26, 30];
 
 type OperatorName = "pencil" | "text" | "arrow" | "reverser";
 
@@ -21,7 +22,7 @@ export interface GraffitiProps {
   UndoIcon?: ReactNode;
   RedoIcon?: ReactNode;
   DeleteIcon?: ReactNode;
-  onConfirm?: (data: string) => void;
+  onConfirm?: (data: string, changed: boolean) => void;
   hideConfirmBtn?: boolean;
   confirmText?: string;
 }
@@ -35,6 +36,7 @@ interface GraffitiState {
   arrowColor: string;
   arrowSize: number;
   textColor: string;
+  textSize: number;
   undoDisabled: boolean;
   redoDisabled: boolean;
 }
@@ -44,7 +46,6 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
   private inputRef: HTMLTextAreaElement | null;
   private canvas: HTMLCanvasElement | null;
   private textMode: "create" | "edit";
-  // private currentSelectedTextBoxIndex: number;
 
   constructor(props: GraffitiProps) {
     super(props);
@@ -61,12 +62,12 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
       arrowColor: colorList[0],
       arrowSize: dotSizeList[0],
       textColor: colorList[0],
+      textSize: fontSizeList[4],
       undoDisabled: true,
       redoDisabled: true,
     };
 
     this.textMode = "create";
-    // this.currentSelectedTextBoxIndex = 0;
 
     this.canvas = null;
   }
@@ -96,12 +97,16 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
     this.graffito?.offEvent();
   }
 
-  handleSelectText = (text: string) => {
+  handleSelectText = (text: string, fontSize: number, color: string) => {
     // console.log(text.replace("\n", ""));
     this.textMode = "edit";
-    // this.currentSelectedTextBoxIndex = index;
     this.inputRef?.focus();
-    this.setState({ inputValue: text.replace("\n", ""), inputVisible: true });
+    this.setState({
+      inputValue: text.replace("\n", ""),
+      inputVisible: true,
+      textSize: fontSize,
+      textColor: color,
+    });
     this.inputRef?.focus();
   };
 
@@ -129,6 +134,10 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
 
   setTextColor = (color: string) => {
     this.setState({ textColor: color });
+  };
+
+  setTextSize = (size: number) => {
+    this.setState({ textSize: size });
   };
 
   setPencilSize = (size: number) => {
@@ -159,7 +168,6 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
       this.graffito?.setMode("arrow");
     }
     if (name === "reverser") {
-      this.graffito?.setMode(undefined);
       this.graffito?.rotateBg();
     }
     this.setState({
@@ -167,6 +175,7 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
       curveColor: colorList[0],
       curveSize: dotSizeList[0],
       textColor: colorList[0],
+      textSize: fontSizeList[4],
     });
   };
 
@@ -204,14 +213,14 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
   };
 
   handleConfirmInput = () => {
-    const { inputValue, textColor } = this.state;
+    const { inputValue, textColor, textSize } = this.state;
 
     // console.log(this.insertLineBreak(inputValue));
     if (this.textMode === "create") {
-      this.graffito?.addText(this.insertLineBreak(inputValue), textColor);
+      this.graffito?.addText(this.insertLineBreak(inputValue), textColor, textSize);
     }
     if (this.textMode === "edit") {
-      this.graffito?.editText(this.insertLineBreak(inputValue), textColor);
+      this.graffito?.editText(this.insertLineBreak(inputValue), textColor, textSize);
     }
     this.setState({ inputValue: "", inputVisible: false });
   };
@@ -220,15 +229,19 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
     const { onConfirm } = this.props;
 
     // for test
-    const img = document.createElement("img");
-    img.src = this.graffito?.toDataUrl("image/png", 1) || "";
-    document.body.appendChild(img);
+    // const img = document.createElement("img");
+    // img.src = this.graffito?.toDataUrl("image/png", 1) || "";
+    // document.body.appendChild(img);
 
     this.setState({ currentOperator: undefined });
     this.graffito?.setMode(undefined);
 
     if (typeof onConfirm === "function" && this.graffito) {
-      // onConfirm(this.graffito.toDataUrl("image/png", 1));
+      if (this.graffito.getDrawData().length > 0) {
+        onConfirm(this.graffito.toDataUrl("image/png", 1), true);
+      } else {
+        onConfirm("", false);
+      }
     }
   };
 
@@ -287,6 +300,7 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
       curveColor,
       curveSize,
       textColor,
+      textSize,
       arrowSize,
       arrowColor,
       undoDisabled,
@@ -430,6 +444,20 @@ class Graffiti extends Component<GraffitiProps, GraffitiState> {
             wrap="hard"
             rows={5}
           />
+
+          <ul className="text-size-list">
+            {fontSizeList.map((size, i) => {
+              return (
+                <li
+                  className={ClassNames("text-size-list-item", { selected: size === textSize })}
+                  onClick={() => this.setTextSize(size)}
+                  key={i}
+                >
+                  {size}
+                </li>
+              );
+            })}
+          </ul>
 
           <ul className="text-color-list">
             {colorList.map((color, i) => {

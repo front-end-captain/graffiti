@@ -1,4 +1,3 @@
-/* eslint-disable no-param-reassign */
 import HammerJs from "hammerjs";
 
 import { Arrow } from "./arrow";
@@ -17,7 +16,7 @@ export interface GraffitoInitOptions {
   curveSize?: number;
   arrowColor?: string;
   arrowSize?: number;
-  onSelectText?: (text: string) => void;
+  onSelectText?: (text: string, fontSize: number, color: string) => void;
   onDrawEnd?: (drawData: DrawDataGroup[], canUndo: boolean, canRedo: boolean) => void;
   mode?: Mode;
 }
@@ -28,6 +27,8 @@ type BackgroundImage = {
   angle: number;
   x: number;
   y: number;
+  dx: number;
+  dy: number;
 };
 
 class Graffito {
@@ -90,6 +91,8 @@ class Graffito {
       angle: 0,
       x: 0,
       y: 0,
+      dx: 0,
+      dy: 0,
     };
 
     this.curveColor = options.curveColor || "#fff";
@@ -113,17 +116,6 @@ class Graffito {
 
   private clear() {
     this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    this.context.fillRect(0, 0, this.canvas.width, this.canvas.height);
-
-    if (this.backgroundImage.image) {
-      this.context.drawImage(
-        this.backgroundImage.image,
-        0,
-        0,
-        this.canvas.width,
-        this.canvas.height,
-      );
-    }
   }
 
   private bindEvent(): void {
@@ -132,6 +124,7 @@ class Graffito {
 
     this.handlePanEvent();
     this.handleTapEvent();
+    this.handleZoomCanvas();
   }
 
   public offEvent(): void {
@@ -167,10 +160,13 @@ class Graffito {
       this.canvas.width = w;
       this.canvas.height = h;
 
-      this.cacheCanvas.width = w;
-      this.cacheCanvas.height = h;
+      this.cacheCanvas.width = w * window.devicePixelRatio;
+      this.cacheCanvas.height = h * window.devicePixelRatio;
+      this.cacheCanvas.style.width = `${w}px`;
+      this.cacheCanvas.style.height = `${h}px`;
+      this.cacheContext.scale(window.devicePixelRatio, window.devicePixelRatio);
 
-      this.context.drawImage(image, 0, 0, w, h);
+      this.cacheContext.drawImage(image, 0, 0, w, h);
 
       this.backgroundImage = {
         ...backgroundImag,
@@ -205,6 +201,10 @@ class Graffito {
       return;
     }
 
+    if (this.currentPanedText) {
+      return;
+    }
+
     const curve = new Curve(this.context, { color: this.curveColor, size: this.curveSize });
     curve.addPoint(this.createPoint(event.center.x, event.center.y));
 
@@ -231,6 +231,10 @@ class Graffito {
 
   private strokeCurveEnd(event: HammerInput) {
     // console.log("%cStrokeEnd", "color: red", event);
+    if (this.currentPanedText) {
+      return;
+    }
+
     this.strokeCurveUpdate(event);
 
     if (this.options.onDrawEnd) {
@@ -240,6 +244,10 @@ class Graffito {
 
   private strokeArrowBegin(event: HammerInput) {
     if (!this.mode) {
+      return;
+    }
+
+    if (this.currentPanedText) {
       return;
     }
 
@@ -269,6 +277,10 @@ class Graffito {
   }
 
   private strokeArrowEnd(event: HammerInput) {
+    if (this.currentPanedText) {
+      return;
+    }
+
     this.strokeArrowUpdate(event);
 
     if (this.options.onDrawEnd) {
@@ -280,7 +292,6 @@ class Graffito {
     if (this.currentPanedText) {
       this.clear();
 
-      this.currentPanedText.selected = true;
       this.currentPanedText.startX = event.center.x - (window.innerWidth - this.canvas.width) / 2;
       this.currentPanedText.startY = event.center.y - (window.innerHeight - this.canvas.height) / 2;
 
@@ -326,6 +337,8 @@ class Graffito {
 
         this.currentPanedText.startX = x;
         this.currentPanedText.startY = y;
+        this.currentPanedText.x = x;
+        this.currentPanedText.y = y;
 
         // this.currentPanedText = null;
       }
@@ -338,72 +351,6 @@ class Graffito {
     }
   }
 
-  private zoomTextStart(event: HammerInput) {
-    if (this.currentPanedText) {
-      // console.log("this.currentPanedText", this.currentPanedText);
-
-      this.currentPanedText.startX = event.center.x - (window.innerWidth - this.canvas.width) / 2;
-      this.currentPanedText.startY = event.center.y - (window.innerHeight - this.canvas.height) / 2;
-
-      this.zoomTextUpdate(event);
-    }
-  }
-
-  private zoomTextUpdate(event: HammerInput) {
-    // console.log("%cZoom text update", "color: red", event.center, event.deltaX, event.deltaY);
-
-    if (this.currentPanedText) {
-      const {
-        width,
-        height,
-        startX,
-        startY,
-        centerX,
-        centerY,
-        initHeight,
-        initWidth,
-        initFontSize,
-      } = this.currentPanedText;
-
-      const x = event.center.x - (window.innerWidth - this.canvas.width) / 2;
-      const y = event.center.y - (window.innerHeight - this.canvas.height) / 2;
-
-      const lineA = Math.sqrt(Math.pow(centerX - startX, 2) + Math.pow(centerY - startY, 2));
-      const lineB = Math.sqrt(Math.pow(centerX - x, 2) + Math.pow(centerY - y, 2));
-
-      const rate = initHeight / initWidth;
-      const w = initWidth + (lineB - lineA);
-      const h = initHeight + (lineB - lineA) * rate;
-      const _fontSize = initFontSize + (lineB - lineA) * rate;
-
-      if (_fontSize < 42) {
-        this.currentPanedText.width = w <= 5 ? 5 : w > this.canvas.width ? this.canvas.width : w;
-        this.currentPanedText.height = h <= 5 ? 5 : h > this.canvas.height ? this.canvas.height : h;
-
-        this.currentPanedText.x = startX - (lineA - lineB) / 2 - width;
-        this.currentPanedText.y = startY - (lineA - lineB) / 2 - height;
-
-        this.currentPanedText.fontSize = _fontSize;
-
-        this.clear();
-
-        this.render(this.currentDrawData, this.context);
-      }
-
-      if (event.type === "panend") {
-        this.currentPanedText.initFontSize = _fontSize;
-        this.currentPanedText.initHeight = h;
-        this.currentPanedText.initWidth = w;
-      }
-    }
-  }
-
-  private zoomTextEnd(event: HammerInput) {
-    if (this.currentPanedText) {
-      this.zoomTextUpdate(event);
-    }
-  }
-
   private handlePanStart = (event: HammerInput) => {
     // console.log("pan start", event, this.mode);
     if (!this.mode) {
@@ -412,13 +359,6 @@ class Graffito {
 
     this.isMouseDown = true;
     this.currentPanedText = null;
-
-    if (this.mode === "curve") {
-      this.strokeCurveBegin(event);
-    }
-    if (this.mode === "arrow") {
-      this.strokeArrowBegin(event);
-    }
 
     const tapedTextBoxList: DrawDataGroup[] = [];
 
@@ -436,34 +376,42 @@ class Graffito {
     });
 
     if (tapedTextBoxList.length > 0) {
-      this.currentPanedText = tapedTextBoxList[tapedTextBoxList.length - 1] as Text;
+      this.unActivityEveryText();
 
-      // console.log(this.currentPanedText);
+      this.currentPanedText = tapedTextBoxList[tapedTextBoxList.length - 1] as Text;
+      this.currentPanedText.selected = true;
 
       if (this.currentPanedText.lastTapedPlace === "text") {
         this.strokeTextStart(event);
+        return;
       }
-      if (this.currentPanedText.lastTapedPlace === "zoom") {
-        this.zoomTextStart(event);
-      }
+
+      return;
+    }
+
+    if (this.mode === "curve" && !this.currentPanedText) {
+      this.strokeCurveBegin(event);
+      return;
+    }
+    if (this.mode === "arrow" && !this.currentPanedText) {
+      this.strokeArrowBegin(event);
+      return;
     }
   };
 
   private handlePanMove = (event: HammerInput) => {
-    // console.log("pan move",event.deltaX);
     if (this.isMouseDown) {
-      if (this.mode === "curve") {
+      if (this.mode === "curve" && !this.currentPanedText) {
         this.strokeCurveUpdate(event);
+        return;
       }
-      if (this.mode === "arrow") {
+      if (this.mode === "arrow" && !this.currentPanedText) {
         this.strokeArrowUpdate(event);
+        return;
       }
       if (this.currentPanedText) {
         if (this.currentPanedText.lastTapedPlace === "text") {
           this.strokeTextUpdate(event);
-        }
-        if (this.currentPanedText.lastTapedPlace === "zoom") {
-          this.zoomTextUpdate(event);
         }
       }
     }
@@ -473,18 +421,17 @@ class Graffito {
     // console.log("pan end",event);
     if (this.isMouseDown) {
       this.isMouseDown = false;
-      if (this.mode === "curve") {
+      if (this.mode === "curve" && !this.currentTapedText) {
         this.strokeCurveEnd(event);
+        return;
       }
-      if (this.mode === "arrow") {
+      if (this.mode === "arrow" && !this.currentTapedText) {
         this.strokeArrowEnd(event);
+        return;
       }
       if (this.currentPanedText) {
         if (this.currentPanedText.lastTapedPlace === "text") {
           this.strokeTextEnd(event);
-        }
-        if (this.currentPanedText.lastTapedPlace === "zoom") {
-          this.zoomTextEnd(event);
         }
       }
     }
@@ -494,18 +441,17 @@ class Graffito {
     // console.log("pan cancel",event);
     if (this.isMouseDown) {
       this.isMouseDown = false;
-      if (this.mode === "curve") {
+      if (this.mode === "curve" && !this.currentTapedText) {
         this.strokeCurveEnd(event);
+        return;
       }
-      if (this.mode === "arrow") {
+      if (this.mode === "arrow" && !this.currentTapedText) {
         this.strokeArrowEnd(event);
+        return;
       }
       if (this.currentPanedText) {
         if (this.currentPanedText.lastTapedPlace === "text") {
           this.strokeTextEnd(event);
-        }
-        if (this.currentPanedText.lastTapedPlace === "zoom") {
-          this.zoomTextEnd(event);
         }
       }
     }
@@ -538,6 +484,8 @@ class Graffito {
     });
 
     if (tapedTextBoxList.length > 0) {
+      this.unActivityEveryText();
+
       this.currentTapedText = tapedTextBoxList[tapedTextBoxList.length - 1] as Text;
 
       if (this.currentTapedText.lastTapedPlace === "text") {
@@ -547,7 +495,9 @@ class Graffito {
           this.render(this.currentDrawData, this.context);
 
           this.options.onSelectText(
-            (tapedTextBoxList[tapedTextBoxList.length - 1] as Text).content,
+            this.currentTapedText.content,
+            this.currentTapedText.fontSize,
+            this.currentTapedText.color,
           );
         }
       }
@@ -579,6 +529,22 @@ class Graffito {
 
   private handleTapEvent() {
     this.Hammer.on("tap", this.handleTapCanvas);
+  }
+
+  private handleZoomCanvas() {
+    this.Hammer.get("pinch").set({ enable: true });
+    // this.Hammer.on("pinchstart", (e) => {
+    //   console.log("pinchstart", e);
+    // });
+    // this.Hammer.on("pinchmove", (e) => {
+    //   console.log("pinchmove", e);
+    // });
+    // this.Hammer.on("pinchend", (e) => {
+    //   console.log("pinchend", e);
+    // });
+    // this.Hammer.on("pinchcancel", (e) => {
+    //   console.log("pinchcancel", e);
+    // });
   }
 
   private render(drawDataGroup: DrawDataGroup[], context?: CanvasRenderingContext2D) {
@@ -629,8 +595,8 @@ class Graffito {
     }
   }
 
-  public addText(text: string, color: string) {
-    const newText = new Text(this.context, this.canvas, { text, color });
+  public addText(text: string, color: string, size: number) {
+    const newText = new Text(this.context, this.canvas, { text, color, size });
     newText.selected = true;
 
     this.currentDrawData.push(newText);
@@ -646,12 +612,14 @@ class Graffito {
     // console.log(this.currentDrawData);
   }
 
-  public editText(text: string, color: string) {
+  public editText(text: string, color: string, size: number) {
     if (this.currentTapedText) {
       this.clear();
+
+      this.currentTapedText.selected = true;
       this.currentTapedText.color = color;
       this.currentTapedText.content = text;
-      this.currentTapedText.selected = true;
+      this.currentTapedText.fontSize = size;
 
       this.render(this.currentDrawData, this.context);
 
@@ -718,7 +686,19 @@ class Graffito {
   public toDataUrl(type = "image/png", quality?: number): string {
     this.unActivityEveryText();
 
-    return this.canvas.toDataURL(type, quality);
+    const _canvas = document.createElement("canvas");
+    _canvas.width = this.canvas.width;
+    _canvas.height = this.canvas.height;
+    const context = _canvas.getContext("2d");
+
+    const { image } = this.backgroundImage;
+
+    if (context && image) {
+      context.drawImage(image, 0, 0, this.canvas.width, this.canvas.height);
+      this.render(this.currentDrawData, context);
+    }
+
+    return _canvas.toDataURL(type, quality);
   }
 
   public unActivityEveryText() {
@@ -726,6 +706,7 @@ class Graffito {
 
     this.currentDrawData.forEach((d) => {
       if (d instanceof Text) {
+        // eslint-disable-next-line no-param-reassign
         d.selected = false;
       }
     });
@@ -734,7 +715,106 @@ class Graffito {
   }
 
   public rotateBg() {
-    // TODO
+    const { image, angle } = this.backgroundImage;
+
+    if (!image) {
+      return;
+    }
+
+    let _angle = angle;
+
+    let _width = image.width;
+    let _height = image.height;
+
+    let canvasWidth = 0;
+    let canvasHeight = 0;
+
+    let k1 = 0;
+    let k2 = 0;
+
+    _angle += 90;
+
+    if (_angle === 360) {
+      _angle = 0;
+    }
+
+    if (_angle === 90 || _angle === 270) {
+      _width = image.height;
+      _height = image.width;
+    }
+
+    k1 = document.body.clientWidth / _width;
+    k2 = document.body.clientHeight / _height;
+
+    const minK = Math.min(k1, k2);
+
+    if (minK < 1) {
+      canvasWidth = minK * _width;
+      canvasHeight = minK * _height;
+    } else {
+      canvasWidth = _width;
+      canvasHeight = _height;
+    }
+
+    this.canvas.width = canvasWidth;
+    this.canvas.height = canvasHeight;
+
+    this.cacheCanvas.width = canvasWidth * window.devicePixelRatio;
+    this.cacheCanvas.height = canvasHeight * window.devicePixelRatio;
+    this.cacheCanvas.style.width = `${canvasWidth}px`;
+    this.cacheCanvas.style.height = `${canvasHeight}px`;
+    this.cacheContext.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+    let translateX = 0;
+    let translateY = 0;
+    let dx = 0;
+    let dy = 0;
+
+    if (_angle === 90) {
+      translateY = canvasHeight;
+      dx = canvasHeight;
+      dy = canvasWidth;
+    }
+
+    if (_angle === 180) {
+      translateX = canvasWidth;
+      translateY = canvasHeight;
+      dx = canvasWidth;
+      dy = canvasHeight;
+    }
+
+    if (_angle === 270) {
+      translateX = canvasWidth;
+      dx = canvasHeight;
+      dy = canvasWidth;
+    }
+
+    if (_angle === 0) {
+      dx = canvasWidth;
+      dy = canvasHeight;
+    }
+
+    this.context.save();
+    this.cacheContext.save();
+
+    this.context.translate(translateX, translateY);
+    this.cacheContext.translate(translateX, translateY);
+
+    this.context.rotate((-_angle * Math.PI) / 180);
+    this.cacheContext.rotate((-_angle * Math.PI) / 180);
+
+    this.cacheContext.drawImage(image, 0, 0, dx, dy);
+
+    this.context.restore();
+    this.cacheContext.restore();
+
+    this.backgroundImage = { ...this.backgroundImage, angle: _angle, dx, dy };
+
+    this.render(this.currentDrawData, this.context);
+  }
+
+  public getDrawData() {
+    return this.currentDrawData;
   }
 }
 

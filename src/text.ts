@@ -1,9 +1,9 @@
-import ZoomIcon from "./assets/zoom.png";
 import DeleteIcon from "./assets/delete.png";
 
 interface TextOptions {
   text: string;
   color: string;
+  size: number;
 }
 
 type TapedPlace = "zoom" | "delete" | "text" | null;
@@ -15,7 +15,7 @@ class Text {
   public width: number;
   public height: number;
 
-  public lineAmount: number;
+  public textList: string[];
 
   public selected: boolean;
 
@@ -26,7 +26,6 @@ class Text {
   private canvas: HTMLCanvasElement;
 
   private DeleteImage: HTMLImageElement;
-  private ZoomImage: HTMLImageElement;
 
   public lastTapedPlace: TapedPlace;
 
@@ -36,17 +35,14 @@ class Text {
   public centerY: number;
 
   public startX: number;
-
   public startY: number;
 
   public initWidth: number;
   public initHeight: number;
 
-  public initFontSize: number;
-
   public fontSize: number;
 
-  public readonly padding: number;
+  public padding: number;
 
   constructor(context: CanvasRenderingContext2D, canvas: HTMLCanvasElement, options: TextOptions) {
     this.context = context;
@@ -60,48 +56,26 @@ class Text {
     this.DeleteImage = new Image();
     this.DeleteImage.src = DeleteIcon;
 
-    this.ZoomImage = new Image();
-    this.ZoomImage.src = ZoomIcon;
-
     this.lastTapedPlace = null;
 
     this.id = Date.now();
 
-    this.fontSize = 30;
-    this.initFontSize = 30;
+    this.fontSize = options.size;
 
     this.padding = 20;
 
-    const textList = this.content.split("\n");
-    this.context.font = `${this.initFontSize}px PingFangSC-Semibold, PingFang SC`;
-    const { width: textWidth } = this.context.measureText(textList[0]);
+    this.textList = [""];
 
-    // console.log("initLeft, initTop", initLeft, initTop);
-    // console.log(textList, textWidth);
+    const { x, y, width, height } = this.getTextBoundingRect();
 
-    const height = 32 * textList.length;
-
-    const _left =
-      this.canvas.width === window.innerWidth
-        ? this.canvas.width / 2 - textWidth / 2
-        : ((window.innerWidth - this.canvas.width) / 2 - textWidth) / 2;
-
-    const _top =
-      this.canvas.height === window.innerHeight
-        ? window.innerHeight / 2 - height / 2
-        : ((window.innerHeight - this.canvas.height) / 2 - height) / 2;
-
-    const width = textWidth > this.canvas.width ? this.canvas.width - 25 : textWidth;
-
-    this.x = _left - this.padding;
-    this.y = _top - this.padding;
-    this.width = width + this.padding;
-    this.height = height + this.padding;
+    this.x = x;
+    this.y = y;
+    this.width = width;
+    this.height = height;
     this.initHeight = this.height;
     this.initWidth = this.width;
     this.startX = this.x;
     this.startY = this.y;
-    this.lineAmount = textList.length;
     this.centerY = this.y + this.height / 2;
     this.centerX = this.x + this.width / 2;
   }
@@ -110,21 +84,62 @@ class Text {
     this.context = context;
   }
 
-  public drawText() {
-    const textList = this.content.split("\n");
-
-    // console.log(this.x, this.y, this.width, this.height);
+  public getTextBoundingRect() {
+    this.textList = this.content.split("\n");
 
     this.context.font = `${this.fontSize}px PingFangSC-Semibold, PingFang SC`;
+    const { width: textWidth } = this.context.measureText(this.textList[0]);
+
+    const height = (this.fontSize + 2) * this.textList.length + this.padding;
+    const width = textWidth + this.padding;
+
+    this.padding = this.fontSize * 0.66;
+
+    const _left =
+      this.canvas.width === window.innerWidth
+        ? (this.canvas.width - textWidth) / 2
+        : ((window.innerWidth - this.canvas.width) / 2 - textWidth) / 2;
+
+    const _top =
+      this.canvas.height === window.innerHeight
+        ? (window.innerHeight - height) / 2
+        : ((window.innerHeight - this.canvas.height) / 2 - height) / 2;
+
+    // console.log("%cGetTextBoundingRect", "color: red", _left, _top, width, height);
+
+    return { x: _left, y: _top, height, width };
+  }
+
+  /**
+   * @deprecated this function is not work
+   */
+  public isOutOfCanvas() {
+    const { x, y, width, height } = this.getTextBoundingRect();
+
+    if (x + width > this.canvas.width || y + height > this.canvas.height) {
+      return true;
+    }
+
+    return false;
+  }
+
+  public drawText() {
+    const { width, height } = this.getTextBoundingRect();
+
+    this.width = width;
+    this.height = height;
+    // this.x = x;
+    // this.y = y;
+
     this.context.fillStyle = this.color;
     this.context.textAlign = "left";
     this.context.textBaseline = "top";
 
-    textList.forEach((t, i) => {
+    this.textList.forEach((t, i) => {
       this.context.fillText(
         t,
         this.x + this.padding / 2,
-        this.y + this.padding / 2 + this.padding / 4 + i * 32,
+        i === 0 ? this.y + (this.padding / 2) * i * 32 : this.y + i * (this.fontSize + 2),
       );
     });
 
@@ -137,24 +152,8 @@ class Text {
         this.context.drawImage(this.DeleteImage, this.x - 12, this.y - 12, 24, 24);
       };
       this.context.drawImage(this.DeleteImage, this.x - 12, this.y - 12, 24, 24);
-
-      this.ZoomImage.onload = () => {
-        this.context.drawImage(
-          this.ZoomImage,
-          this.x + this.width - 12,
-          this.y + this.height - 12,
-          24,
-          24,
-        );
-      };
-      this.context.drawImage(
-        this.ZoomImage,
-        this.x + this.width - 12,
-        this.y + this.height - 12,
-        24,
-        24,
-      );
     }
+
     this.context.restore();
   }
 
